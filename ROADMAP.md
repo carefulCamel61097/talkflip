@@ -29,13 +29,14 @@ M0 → M1 → M2 → M3 → M4 is the spine. After M4 the product functions end-
 
 **Demo:** static screenshot-quality mock of the final UI, verified in Chrome.
 
-### M2 — Activation state (tap chips)
-- [ ] Riverpod state: `ActiveSide { neutral, left, right }`
-- [ ] Tap chip activates that side
-- [ ] Bubbles, chips, and draft bubble all react to state
-- [ ] No STT yet — purely visual state machine
+### M2 — Activation state (tap chips) ✓
+- [x] Riverpod state: `ActiveSide { neutral, left, right }` via `NotifierProvider`
+- [x] Tap chip activates that side
+- [x] Bubbles, chips, and draft bubble all react to state
+- [x] No STT yet — purely visual state machine
+- [x] Bubble border always 2px (only colour toggles) to prevent layout shift on activation change
 
-**Demo:** can flip active side by tapping chips; visual is fully reactive.
+**Demo:** can flip active side by tapping chips; visual is fully reactive and stable.
 
 ### M3 — Speech-to-text into draft bubble
 - [ ] `speech_to_text` integration

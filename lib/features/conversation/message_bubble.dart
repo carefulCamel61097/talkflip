@@ -29,9 +29,12 @@ class MessageBubble extends StatelessWidget {
         decoration: BoxDecoration(
           color: bubbleColor,
           borderRadius: BorderRadius.circular(12),
-          border: isActiveSide
-              ? Border.all(color: AppColors.accent.withValues(alpha: 0.7), width: 2.0)
-              : null,
+          border: Border.all(
+            color: isActiveSide
+                ? AppColors.accent.withValues(alpha: 0.7)
+                : Colors.transparent,
+            width: 2.0,
+          ),
           boxShadow: const [
             BoxShadow(
               color: Color(0x14000000),
