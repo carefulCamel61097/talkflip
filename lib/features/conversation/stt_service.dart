@@ -4,18 +4,18 @@ import 'package:flutter/foundation.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
-/// Wrapper around speech_to_text with cross-platform silence handling.
+/// Wrapper around speech_to_text with cross-platform commit behavior.
 ///
-/// Platform STT engines have inconsistent silence detection — Android's VAD
-/// fires `isFinal` after ~0.5–1s of pause (too aggressive), and the Web
-/// Speech API never fires it on pause at all. Instead of trusting the
-/// platform's `isFinal`, this service runs its own silence timer that resets
-/// on every new partial result and fires a synthesised "final" callback after
-/// [_silenceThreshold] of no new text.
+/// Commit strategy: whichever fires first wins —
+/// 1. Platform `isFinal=true` (Android's VAD fires after ~1s pause; iOS rarely
+///    from pauses; Web never from pauses).
+/// 2. Our own [_silenceThreshold] fallback timer (resets on every new partial).
 ///
-/// Across sessions (Android ends sessions after each utterance), text is
-/// accumulated so the consumer sees one continuous draft until our timer
-/// fires.
+/// Net effect: Android commits bubbles on natural ~1s pauses, iOS/Web on our
+/// 3s timer. Android's auto-restart gap (~100-500ms between sessions) may
+/// clip the first word or two of an immediately-resumed utterance — accepted
+/// platform limitation; the visible bubble-commit at least signals to users
+/// that they should pause briefly before continuing.
 class SttService {
   static const _silenceThreshold = Duration(seconds: 3);
 
@@ -27,7 +27,6 @@ class SttService {
   void Function(String text, bool isFinal)? _onResult;
 
   Timer? _silenceTimer;
-  String _accumulatedText = '';
   String _currentSessionText = '';
 
   Future<bool> _ensureInitialized() async {
@@ -50,8 +49,6 @@ class SttService {
   void _handleStatus(String status) {
     if (status == 'notListening' && _shouldListen) {
       if (_lastWasError) {
-        // Back off after errors so we don't spin in a tight restart loop
-        // when the platform recognizer is in a bad state.
         _lastWasError = false;
         Timer(const Duration(milliseconds: 500), _start);
       } else {
@@ -69,7 +66,6 @@ class SttService {
     _currentLocale = locale;
     _onResult = onResult;
     _shouldListen = true;
-    _accumulatedText = '';
     _currentSessionText = '';
     _silenceTimer?.cancel();
     await _start();
@@ -85,9 +81,6 @@ class SttService {
         onResult: _onSpeechResult,
         localeId: _currentLocale,
         listenFor: const Duration(minutes: 30),
-        // Long pauseFor — we manage our own silence threshold so platforms
-        // don't preempt us. Android's VAD will still fire isFinal early; we
-        // just don't act on it.
         pauseFor: const Duration(seconds: 30),
         listenOptions: SpeechListenOptions(
           partialResults: true,
@@ -99,28 +92,19 @@ class SttService {
     }
   }
 
-  String _fullDraft() {
-    if (_accumulatedText.isEmpty) return _currentSessionText;
-    if (_currentSessionText.isEmpty) return _accumulatedText;
-    return '$_accumulatedText $_currentSessionText';
-  }
-
   void _onSpeechResult(SpeechRecognitionResult result) {
     final text = result.recognizedWords;
-    if (text != _currentSessionText) {
+    // Guard: don't let an empty isFinal wipe out a non-empty partial state.
+    if (text.isNotEmpty && text != _currentSessionText) {
       _currentSessionText = text;
-      if (kDebugMode) debugPrint('STT: partial "${_fullDraft()}"');
-      _onResult?.call(_fullDraft(), false);
+      if (kDebugMode) debugPrint('STT: partial "$_currentSessionText"');
+      _onResult?.call(_currentSessionText, false);
       _resetSilenceTimer();
     }
 
-    if (result.finalResult && _currentSessionText.isNotEmpty) {
-      // Platform ended this session. Accumulate and let auto-restart begin
-      // the next session via the status callback. Our silence timer keeps
-      // running across sessions.
-      if (kDebugMode) debugPrint('STT: platform final, accumulating "${_fullDraft()}"');
-      _accumulatedText = _fullDraft();
-      _currentSessionText = '';
+    if (result.finalResult) {
+      if (kDebugMode) debugPrint('STT: platform final, committing "$_currentSessionText"');
+      _commitCurrent();
     }
   }
 
@@ -130,17 +114,9 @@ class SttService {
   }
 
   Future<void> _onSilenceTimeout() async {
-    final finalText = _fullDraft().trim();
-    _accumulatedText = '';
-    _currentSessionText = '';
-
-    if (finalText.isNotEmpty) {
-      if (kDebugMode) debugPrint('STT: silence timer fired, committing "$finalText"');
-      _onResult?.call(finalText, true);
-    }
-
-    // Stop the current platform session so the next utterance starts fresh.
-    // Auto-restart will resume listening via _handleStatus.
+    if (kDebugMode) debugPrint('STT: silence timer fired, committing "$_currentSessionText"');
+    _commitCurrent();
+    // Stop and let auto-restart begin a fresh session.
     if (_speech.isListening) {
       try {
         await _speech.stop();
@@ -148,11 +124,19 @@ class SttService {
     }
   }
 
+  void _commitCurrent() {
+    final text = _currentSessionText.trim();
+    _silenceTimer?.cancel();
+    _currentSessionText = '';
+    if (text.isNotEmpty) {
+      _onResult?.call(text, true);
+    }
+  }
+
   Future<void> stopListening() async {
     _shouldListen = false;
     _currentLocale = null;
     _silenceTimer?.cancel();
-    _accumulatedText = '';
     _currentSessionText = '';
     if (_speech.isListening) {
       try {

@@ -41,7 +41,7 @@ Anatomy of the main page, top to bottom:
 
 ### Microphone behavior
 - **Continuous listening on the active side.** Mic stays open until the other side is activated, or until a longer silence suspends it (see below).
-- **Intra-turn silence threshold ~2–3 seconds.** Used to chunk one speaker's words into separate bubbles within their own turn. Not used to switch speakers.
+- **Intra-turn silence threshold.** Bubble commits when *either* (a) the platform STT engine fires `isFinal=true` (Android ~1s; iOS/Web rarely from natural pauses) *or* (b) our 3s fallback silence timer fires. Net effect: Android commits on ~1s sentence-end pauses (matching its native VAD); iOS and Web commit on 3s. Not used to switch speakers — switching is always explicit.
 - **Neutral state.** Neither side is active. Reached on app open before first interaction, after a longer total silence (e.g., 30–60s, battery-saving), or after a deliberate "stop" gesture (TBD if needed).
 - **Activating from neutral.** Tapping a language chip OR swiping horizontally must activate the corresponding side. Swipe must work in neutral state, not only when switching between two active states.
 - **Live draft bubble.** Words stream in real-time in a faint bubble as the speaker talks. On commit (silence threshold OR side switch), the draft is finalized and translated.
@@ -84,6 +84,7 @@ Shown only on first run, never again:
 
 - **Freemium tipping point:** baseline is free. If Google Translate's 500k chars/month free tier is exceeded, what's the trigger for a paid upgrade? Per-device monthly cap, optional upgrade prompt, or just absorb the cost? Defer until close to the limit.
 - **Per-language STT fallback:** if `speech_to_text` quality is poor for a target language, we'll add cloud STT (likely Whisper) just for that language. Which languages need this is TBD, discovered via testing.
+- **Android STT session-gap limitation (workaround applied):** Android's `SpeechRecognizer` is session-based — it ends sessions after ~1s of silence, with a ~100–500ms auto-restart gap. To make this visible rather than invisible, we commit a bubble on every platform `isFinal=true` (rather than accumulating across sessions). Users see the bubble commit, learn to pause briefly before continuing. Words spoken in the auto-restart gap can still be clipped, but the failure mode is now predictable and learnable. Full fix would require cloud streaming STT (Whisper, Google Cloud Speech) or direct `AudioRecord` capture — substantial work, deferred to post-MVP. iOS and Web don't have this issue.
 - **Language-change-on-main-page (deferred):** for MVP, language change lives only in settings. If user testing later shows people change languages frequently, revisit with a long-press-chip shortcut.
 
 ## Tech stack

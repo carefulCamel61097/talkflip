@@ -47,6 +47,7 @@ class ConversationPage extends ConsumerWidget {
                     return MessageBubble(
                       message: message,
                       isActiveSide: isActiveSide,
+                      onRetry: () => notifier.retryTranslation(message.id),
                     );
                   }
                   return DraftBubble(

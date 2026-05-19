@@ -49,14 +49,16 @@ M0 → M1 → M2 → M3 → M4 is the spine. After M4 the product functions end-
 
 **Demo:** verified on Chrome (web) and Android (physical Oppo CPH2483). One-sided conversation where speech becomes bubbles in the active side's language. Translation placeholder `"..."` will be replaced with real translation in M4.
 
-### M4 — Cloudflare Worker proxy + Google Translate
-- [ ] CF Worker: `POST /translate {text, source, target}` → Google Translate API → response. API key in Worker secret.
-- [ ] Device-ID-based rate limiting (KV-backed counter) to prevent abuse
-- [ ] Flutter calls the Worker on bubble commit via `dio`
-- [ ] Update bubble with translation when response arrives
-- [ ] Translation failure → "tap to retry" affordance on the bubble
+### M4 — Cloudflare Worker proxy + Google Translate ✓
+- [x] CF Worker: `POST /translate {text, source, target}` → Google Translate API → response. API key in Worker secret.
+- [ ] ~~Device-ID-based rate limiting (KV-backed counter)~~ — deferred. GCP API restriction + free-tier cap bounds damage; revisit if abuse becomes a concern.
+- [x] Flutter calls the Worker on bubble commit via `dio`
+- [x] Update bubble with translation when response arrives (in-place by message ID)
+- [x] Translation failure → "tap to retry" affordance on the bubble (refresh icon + tappable bubble)
 
-**Demo:** real speech → real translation. Two people can actually converse.
+**Demo:** verified end-to-end on Chrome (web). Real speech → real translation, draft → bubble with `…` → translation appears within a few hundred ms. Android also functional, but with a known session-gap STT limitation documented in [CLAUDE.md](CLAUDE.md).
+
+**Worker URL:** `https://talkflip-translator.talkflip.workers.dev` (public-facing; GCP key is in Cloudflare secret store).
 
 ### M5 — Swipe gesture
 - [ ] `GestureDetector` with `onHorizontalDragEnd`
