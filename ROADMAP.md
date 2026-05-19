@@ -10,14 +10,15 @@ M0 → M1 → M2 → M3 → M4 is the spine. After M4 the product functions end-
 
 ## Milestones
 
-### M0 — Project scaffold
-- [ ] `flutter create` in the project folder
-- [ ] Add dependencies: `flutter_riverpod`, `dio`, `shared_preferences`, `speech_to_text`, `permission_handler`, `intl`, `connectivity_plus`
-- [ ] Folder structure: `lib/features/conversation/`, `lib/features/settings/`, `lib/core/`
-- [ ] iOS `NSMicrophoneUsageDescription` (Info.plist) + Android `RECORD_AUDIO` (manifest)
-- [ ] Riverpod `ProviderScope`, baseline theme
+### M0 — Project scaffold ✓
+- [x] `flutter create` in the project folder (bundle ID: `com.carefulcamel61097.talkflip`)
+- [x] Add dependencies: `flutter_riverpod`, `dio`, `shared_preferences`, `speech_to_text`, `permission_handler`, `intl`, `connectivity_plus`
+- [x] Folder structure: `lib/features/conversation/`, `lib/features/settings/`, `lib/core/`
+- [x] iOS `NSMicrophoneUsageDescription` (Info.plist) + Android `RECORD_AUDIO` (manifest)
+- [x] Riverpod `ProviderScope`, baseline theme
+- [x] Web platform added for dev convenience (won't ship)
 
-**Demo:** empty themed screen runs on both platforms.
+**Demo:** empty themed screen runs in Chrome. Mobile verification deferred until M3 (Android Studio emulator or physical Android device).
 
 ### M1 — Static layout with mock data
 - [ ] Top bar with centered settings cog
