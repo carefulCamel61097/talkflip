@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme.dart';
 import 'active_side.dart';
+import 'conversation_state.dart';
 import 'draft_bubble.dart';
-import 'message.dart';
 import 'message_bubble.dart';
 
 class ConversationPage extends ConsumerWidget {
@@ -12,37 +12,14 @@ class ConversationPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final activeSide = ref.watch(activeSideProvider);
-    final notifier = ref.read(activeSideProvider.notifier);
+    final convo = ref.watch(conversationProvider);
+    final notifier = ref.read(conversationProvider.notifier);
 
     const leftCode = 'EN';
     const rightCode = 'ES';
 
-    const mockMessages = <Message>[
-      Message(
-        originalText: 'Hello, how are you?',
-        translatedText: 'Hola, ¿cómo estás?',
-        isLeft: true,
-      ),
-      Message(
-        originalText: 'Muy bien, gracias. ¿Y tú?',
-        translatedText: 'Very well, thank you. And you?',
-        isLeft: false,
-      ),
-      Message(
-        originalText: 'I am good. Where are you from?',
-        translatedText: 'Estoy bien. ¿De dónde eres?',
-        isLeft: true,
-      ),
-      Message(
-        originalText: 'Soy de Buenos Aires. ¿Y tú?',
-        translatedText: 'I am from Buenos Aires. And you?',
-        isLeft: false,
-      ),
-    ];
-
-    final showDraft = activeSide != ActiveSide.neutral;
-    final draftIsLeft = activeSide == ActiveSide.left;
+    final showDraft = convo.activeSide != ActiveSide.neutral;
+    final draftIsLeft = convo.activeSide == ActiveSide.left;
 
     return Scaffold(
       backgroundColor: AppColors.chatBackground,
@@ -53,27 +30,27 @@ class ConversationPage extends ConsumerWidget {
             _LanguageChipsRow(
               leftCode: leftCode,
               rightCode: rightCode,
-              activeSide: activeSide,
+              activeSide: convo.activeSide,
               onLeftTap: () => notifier.activate(ActiveSide.left),
               onRightTap: () => notifier.activate(ActiveSide.right),
             ),
             Expanded(
               child: ListView.builder(
                 padding: const EdgeInsets.symmetric(vertical: 8),
-                itemCount: mockMessages.length + (showDraft ? 1 : 0),
+                itemCount: convo.messages.length + (showDraft ? 1 : 0),
                 itemBuilder: (context, index) {
-                  if (index < mockMessages.length) {
-                    final message = mockMessages[index];
+                  if (index < convo.messages.length) {
+                    final message = convo.messages[index];
                     final isActiveSide =
-                        (message.isLeft && activeSide == ActiveSide.left) ||
-                            (!message.isLeft && activeSide == ActiveSide.right);
+                        (message.isLeft && convo.activeSide == ActiveSide.left) ||
+                            (!message.isLeft && convo.activeSide == ActiveSide.right);
                     return MessageBubble(
                       message: message,
                       isActiveSide: isActiveSide,
                     );
                   }
                   return DraftBubble(
-                    text: 'so where exactly in Argentina...',
+                    text: convo.draftText,
                     isLeft: draftIsLeft,
                   );
                 },

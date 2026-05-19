@@ -68,5 +68,7 @@
 	</array>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>TalkFlip uses the microphone to transcribe what you say so it can be translated for the other person.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>TalkFlip uses speech recognition to convert your speech to text for translation.</string>
 </dict>
 </plist>

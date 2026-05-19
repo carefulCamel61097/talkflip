@@ -38,14 +38,16 @@ M0 → M1 → M2 → M3 → M4 is the spine. After M4 the product functions end-
 
 **Demo:** can flip active side by tapping chips; visual is fully reactive and stable.
 
-### M3 — Speech-to-text into draft bubble
-- [ ] `speech_to_text` integration
-- [ ] Mic permission flow on first need
-- [ ] Partial results stream into draft bubble live
-- [ ] 2–3s intra-turn silence commits to a finalised bubble (original text only; translation field = `"..."` placeholder)
-- [ ] Switching sides also commits any pending draft
+### M3 — Speech-to-text into draft bubble ✓
+- [x] `speech_to_text` integration via custom `SttService` wrapper
+- [x] Mic permission flow on first need (handled internally by `speech_to_text`)
+- [x] Partial results stream into draft bubble live
+- [x] 3s intra-turn silence commits via our own timer (platform `isFinal` is unreliable — Android too aggressive, Web never fires; our timer overrides)
+- [x] Switching sides also commits any pending draft
+- [x] Continuous listening with auto-restart across Android session boundaries; 500ms backoff after STT errors to prevent tight restart loops
+- [x] iOS `NSSpeechRecognitionUsageDescription` and Android `RecognitionService` queries entry added
 
-**Demo:** one-sided conversation where speech becomes bubbles in the active side's language.
+**Demo:** verified on Chrome (web) and Android (physical Oppo CPH2483). One-sided conversation where speech becomes bubbles in the active side's language. Translation placeholder `"..."` will be replaced with real translation in M4.
 
 ### M4 — Cloudflare Worker proxy + Google Translate
 - [ ] CF Worker: `POST /translate {text, source, target}` → Google Translate API → response. API key in Worker secret.
