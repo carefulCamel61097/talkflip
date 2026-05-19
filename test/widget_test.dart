@@ -4,8 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:talkflip/main.dart';
 
 void main() {
-  testWidgets('App boots and shows TalkFlip placeholder', (tester) async {
+  testWidgets('App boots and shows both language chips', (tester) async {
     await tester.pumpWidget(const ProviderScope(child: TalkFlipApp()));
-    expect(find.text('TalkFlip'), findsOneWidget);
+    expect(find.text('EN'), findsOneWidget);
+    expect(find.text('ES'), findsOneWidget);
   });
 }

@@ -20,14 +20,14 @@ M0 → M1 → M2 → M3 → M4 is the spine. After M4 the product functions end-
 
 **Demo:** empty themed screen runs in Chrome. Mobile verification deferred until M3 (Android Studio emulator or physical Android device).
 
-### M1 — Static layout with mock data
-- [ ] Top bar with centered settings cog
-- [ ] Language chip row (hardcoded EN / ES)
-- [ ] Chat area with mock dual-text bubbles (a few on each side)
-- [ ] Mock draft bubble (dashed, faded) on hardcoded-active side
-- [ ] Active-side highlight visible; inactive side fully readable (no dimming)
+### M1 — Static layout with mock data ✓
+- [x] Top bar with centered settings cog
+- [x] Language chip row (hardcoded EN / ES)
+- [x] Chat area with mock dual-text bubbles (a few on each side)
+- [x] Mock draft bubble (faded, solid border for now — dashed deferred to avoid extra dep)
+- [x] Active-side highlight visible; inactive side fully readable (no dimming)
 
-**Demo:** static screenshot-quality mock of the final UI.
+**Demo:** static screenshot-quality mock of the final UI, verified in Chrome.
 
 ### M2 — Activation state (tap chips)
 - [ ] Riverpod state: `ActiveSide { neutral, left, right }`
