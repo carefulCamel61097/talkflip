@@ -111,3 +111,44 @@ Not started; out of scope until you actually want to release. Includes:
 - Google Play Developer account
 - TestFlight + Google Play internal track setup
 - App store listings (screenshots, descriptions, privacy policy URL)
+
+## Beyond v1.0 — post-launch ideas
+
+Captured here so they don't get lost. None are committed; each will need a design pass before it becomes a milestone. Listed in rough order of how "free" they feel — language expansion is mostly mechanical, monetisation needs a strategy decision, videocall mode is a real product redesign.
+
+### More languages
+Currently 13: EN, ES, FR, DE, IT, PT, NL, RU, JA, KO, ZH, AR, HI. The list is the intersection of `speech_to_text` supported locales and Google Translate codes, picked for global coverage with a minimal-yet-meaningful set.
+
+**To add more, per language:**
+- Verify the locale is in `speech_to_text` (varies by platform — iOS and Android have different lists).
+- Verify the language has a Google Translate code (almost always yes).
+- Add a `Language` entry to `SupportedLanguages.all` in `lib/core/supported_languages.dart`.
+- Test that real speech in that language gets transcribed accurately enough to be useful — quality varies wildly (some Indian languages, some African languages, less-common European ones).
+
+**Open question:** for languages where `speech_to_text` quality is poor, fall back to cloud STT (Whisper via a Worker endpoint, or Google Cloud Speech). This is noted in CLAUDE.md as the per-language STT fallback open question.
+
+### Monetisation
+ConvoGo currently has no revenue model. Translation costs accrue on the free tier of Google Cloud Translation (500k chars/month) — fine for now, but a problem at scale.
+
+**Plausible models, in order of how well they fit the product:**
+1. **Per-device monthly free quota → optional unlock.** Most natural for ConvoGo. Track usage on the device (or via Worker counter keyed by device ID), show a soft prompt once a user hits, say, 50k chars in a month, offering a one-time or monthly unlock. Travellers using it for a one-off trip never see the prompt; heavy users self-select into paying.
+2. **One-time paid unlock for "everything."** Single in-app purchase that removes any limits. Cleaner UX (no recurring billing), familiar pattern for travel apps.
+3. **"Pay what you want" / tip jar.** Friction-free but unreliable revenue. Worth considering as a low-effort addition alongside another model.
+4. **Ads.** Rejected. Conflicts with "smooth and fast > feature-rich" and the no-tracking privacy story.
+
+**Open questions:** what's the trigger — the 500k Google free-tier cap, $X/month in costs, or earlier (so growth can be funded)? Per-device tracking integrity (people can reinstall). iOS and Android billing differences.
+
+### Videocall mode
+Currently ConvoGo is built for the "two people, one phone, face-to-face" moment. A natural adjacent use case: two people on a video call, each speaking their own language, ConvoGo running on one side and translating the other side's audio in real time.
+
+**Why this is interesting:**
+- The two audio streams are already separated by the call (incoming = other person, outgoing = you), which means no manual chip-tap to switch sides — the app could auto-attribute speech.
+- Removes the "one phone" constraint, expanding to remote international conversations.
+- Captures a different audience: business calls, family abroad, online dating across languages.
+
+**Why it's significant scope:**
+- Audio routing during an active call is OS-level complex (Android `AudioPlaybackCapture`, iOS no clean equivalent without an extension).
+- Either integrate with existing call apps (Zoom, FaceTime, WhatsApp, Google Meet — each different) or build ConvoGo's own call layer (huge scope creep).
+- Significantly changes the product's core principle from "two people, one phone, one moment" → potentially a different product entirely.
+
+**Open question:** is this an add-on to ConvoGo, or a sibling product sharing the translation infrastructure? Probably the latter, since the UX is so different.
