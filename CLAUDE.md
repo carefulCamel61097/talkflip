@@ -50,7 +50,7 @@ Anatomy of the main page, top to bottom:
 - **Language codes (EN, ES, FR, …) as tappable chips.** Flags rejected for now — politically and linguistically lossy (🇺🇸 ignores UK/AU English, 🇪🇸 ignores Latin American Spanish, 🇨🇳 vs 🇹🇼 is a minefield). Revisit if users push back.
 
 ### Gestures
-- **Horizontal swipe:** switch speakers OR activate a side from neutral state. Must be reachable by a single thumb (works from the lower half of the screen at minimum).
+- **Horizontal swipe:** switch speakers OR activate a side from neutral state. **Direction convention: carousel/page-swipe model** — swipe pushes the current side off-screen and reveals the opposite side (swipe right → activate left; swipe left → activate right). Matches Instagram stories, Tinder, iOS Photos, etc. Must be reachable by a single thumb (works from the lower half of the screen at minimum).
 - **Vertical swipe:** scroll conversation history.
 - No other gestures in MVP.
 

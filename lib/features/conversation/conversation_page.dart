@@ -7,13 +7,45 @@ import 'conversation_state.dart';
 import 'draft_bubble.dart';
 import 'message_bubble.dart';
 
-class ConversationPage extends ConsumerWidget {
+class ConversationPage extends ConsumerStatefulWidget {
   const ConversationPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ConversationPage> createState() => _ConversationPageState();
+}
+
+class _ConversationPageState extends ConsumerState<ConversationPage> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) return;
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final convo = ref.watch(conversationProvider);
     final notifier = ref.read(conversationProvider.notifier);
+
+    ref.listen(conversationProvider, (previous, next) {
+      final prevCount = previous?.messages.length ?? 0;
+      final prevDraft = previous?.draftText ?? '';
+      if (next.messages.length > prevCount || next.draftText != prevDraft) {
+        _scrollToBottom();
+      }
+    });
 
     const leftCode = 'EN';
     const rightCode = 'ES';
@@ -24,40 +56,56 @@ class ConversationPage extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.chatBackground,
       body: SafeArea(
-        child: Column(
-          children: [
-            const _TopBar(),
-            _LanguageChipsRow(
-              leftCode: leftCode,
-              rightCode: rightCode,
-              activeSide: convo.activeSide,
-              onLeftTap: () => notifier.activate(ActiveSide.left),
-              onRightTap: () => notifier.activate(ActiveSide.right),
-            ),
-            Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                itemCount: convo.messages.length + (showDraft ? 1 : 0),
-                itemBuilder: (context, index) {
-                  if (index < convo.messages.length) {
-                    final message = convo.messages[index];
-                    final isActiveSide =
-                        (message.isLeft && convo.activeSide == ActiveSide.left) ||
-                            (!message.isLeft && convo.activeSide == ActiveSide.right);
-                    return MessageBubble(
-                      message: message,
-                      isActiveSide: isActiveSide,
-                      onRetry: () => notifier.retryTranslation(message.id),
-                    );
-                  }
-                  return DraftBubble(
-                    text: convo.draftText,
-                    isLeft: draftIsLeft,
-                  );
-                },
+        child: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onHorizontalDragEnd: (details) {
+            const swipeVelocityThreshold = 300.0;
+            final velocity = details.primaryVelocity ?? 0.0;
+            // Carousel convention: swipe pushes the current side away,
+            // revealing the opposite side. Swipe right → activate left;
+            // swipe left → activate right.
+            if (velocity > swipeVelocityThreshold) {
+              notifier.activate(ActiveSide.left);
+            } else if (velocity < -swipeVelocityThreshold) {
+              notifier.activate(ActiveSide.right);
+            }
+          },
+          child: Column(
+            children: [
+              const _TopBar(),
+              _LanguageChipsRow(
+                leftCode: leftCode,
+                rightCode: rightCode,
+                activeSide: convo.activeSide,
+                onLeftTap: () => notifier.activate(ActiveSide.left),
+                onRightTap: () => notifier.activate(ActiveSide.right),
               ),
-            ),
-          ],
+              Expanded(
+                child: ListView.builder(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  itemCount: convo.messages.length + (showDraft ? 1 : 0),
+                  itemBuilder: (context, index) {
+                    if (index < convo.messages.length) {
+                      final message = convo.messages[index];
+                      final isActiveSide =
+                          (message.isLeft && convo.activeSide == ActiveSide.left) ||
+                              (!message.isLeft && convo.activeSide == ActiveSide.right);
+                      return MessageBubble(
+                        message: message,
+                        isActiveSide: isActiveSide,
+                        onRetry: () => notifier.retryTranslation(message.id),
+                      );
+                    }
+                    return DraftBubble(
+                      text: convo.draftText,
+                      isLeft: draftIsLeft,
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

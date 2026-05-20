@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -28,5 +29,21 @@ void main() {
     await tester.tap(find.text('ES'));
     await tester.pump();
     expect(find.byType(DraftBubble), findsOneWidget);
+  });
+
+  testWidgets('Swiping right activates the left side (carousel convention)', (tester) async {
+    await tester.pumpWidget(const ProviderScope(child: TalkFlipApp()));
+    await tester.fling(find.byType(Scaffold), const Offset(500, 0), 1000);
+    await tester.pump();
+    final draft = tester.widget<DraftBubble>(find.byType(DraftBubble));
+    expect(draft.isLeft, isTrue);
+  });
+
+  testWidgets('Swiping left activates the right side (carousel convention)', (tester) async {
+    await tester.pumpWidget(const ProviderScope(child: TalkFlipApp()));
+    await tester.fling(find.byType(Scaffold), const Offset(-500, 0), 1000);
+    await tester.pump();
+    final draft = tester.widget<DraftBubble>(find.byType(DraftBubble));
+    expect(draft.isLeft, isFalse);
   });
 }

@@ -60,13 +60,14 @@ M0 → M1 → M2 → M3 → M4 is the spine. After M4 the product functions end-
 
 **Worker URL:** `https://talkflip-translator.talkflip.workers.dev` (public-facing; GCP key is in Cloudflare secret store).
 
-### M5 — Swipe gesture
-- [ ] `GestureDetector` with `onHorizontalDragEnd`
-- [ ] Direction convention: swipe in the direction of the side you want to activate (swipe-left → left chip; swipe-right → right chip)
-- [ ] Threshold + velocity check to avoid accidental triggers
-- [ ] Vertical drags still scroll history
+### M5 — Swipe gesture ✓
+- [x] `GestureDetector` with `onHorizontalDragEnd` wrapping the body (`HitTestBehavior.translucent` so chip taps and ListView scroll still work)
+- [x] Direction convention: **carousel/page-swipe** — swipe pushes the current side away, revealing the opposite side (swipe right → activate left; swipe left → activate right). Matches dominant app conventions (Instagram, Tinder, iOS Photos, etc.). Changed from the original "swipe toward target" after user testing showed the carousel direction is more intuitive.
+- [x] Velocity threshold (300 px/s) to avoid accidental triggers
+- [x] Vertical drags still scroll history (handled by the inner `ListView` — gesture arena disambiguates by direction)
+- [x] Auto-scroll chat to bottom on new messages and draft updates (folded in — was missing since M3)
 
-**Demo:** one-handed thumb-swipe between sides.
+**Demo:** one-handed thumb-swipe between sides; chat auto-scrolls to follow the latest content.
 
 ### M6 — Persistence + first-launch language picker
 - [ ] `shared_preferences` stores the language pair
