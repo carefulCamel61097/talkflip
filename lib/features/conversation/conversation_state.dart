@@ -76,6 +76,7 @@ class ConversationNotifier extends Notifier<ConversationState> {
     await _stt.startListening(
       locale: language.sttLocale,
       onResult: _handleSttResult,
+      onSuspended: _handleSttSuspended,
     );
   }
 
@@ -84,6 +85,10 @@ class ConversationNotifier extends Notifier<ConversationState> {
     if (isFinal) {
       _commitDraft();
     }
+  }
+
+  void _handleSttSuspended() {
+    state = state.copyWith(activeSide: ActiveSide.neutral, draftText: '');
   }
 
   void _commitDraft() {

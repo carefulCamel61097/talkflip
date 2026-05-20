@@ -90,12 +90,12 @@ M0 → M1 → M2 → M3 → M4 is the spine. After M4 the product functions end-
 
 **Demo:** verified on Chrome. All three settings actions work; language change pops back to conversation; clear wipes messages and pops back; about page renders.
 
-### M8 — Status indicators + onboarding + mic suspend
-- [ ] Offline indicator via `connectivity_plus`: grey/muted-orange dot near settings cog when offline; nothing when online
-- [ ] Mic suspend: 60s total silence on active side → return to neutral + show "tap a side to start" hint
-- [ ] First-launch swipe onboarding: one-time animation on the chips, dismissed after first successful swipe
+### M8 — Status indicators + onboarding + mic suspend ✓
+- [x] Offline indicator via `connectivity_plus`: grey dot in top-right of the top bar when offline; nothing when online. Tooltip explains "Offline — translation unavailable". Note: Chrome's DevTools "Offline" simulation does not trigger this (it only blocks HTTP, doesn't update `navigator.onLine`); verify by actually disconnecting Wi-Fi.
+- [x] Mic suspend: 60s of no new speech → `SttService` stops listening and emits `onSuspended` → `ConversationNotifier` returns to `ActiveSide.neutral`. The visual transition (chips going from active to outlined) IS the user-facing signal. Explicit "tap a side to start" hint deliberately skipped — clutter outweighs benefit since the neutral state is already a familiar visual.
+- [x] First-launch swipe onboarding: SnackBar saying "Tap a language to talk. Swipe sideways to switch sides." appears on first arrival to the conversation page, auto-dismisses after 5s. Persisted via `seen_swipe_hint` flag in `shared_preferences`.
 
-**Demo:** all status states behave correctly under offline / silence / first-launch conditions.
+**Demo:** offline dot toggles with real network state; mic auto-suspends after 60s; snackbar shows once on first launch.
 
 ### M9 — Pre-ship polish
 - [ ] Animation refinement (chip activation transitions, bubble entry)

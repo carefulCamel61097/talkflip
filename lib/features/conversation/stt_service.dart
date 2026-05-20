@@ -4,20 +4,21 @@ import 'package:flutter/foundation.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
-/// Wrapper around speech_to_text with cross-platform commit behavior.
+/// Wrapper around speech_to_text with cross-platform commit behavior and a
+/// long-idle suspend.
 ///
 /// Commit strategy: whichever fires first wins —
 /// 1. Platform `isFinal=true` (Android's VAD fires after ~1s pause; iOS rarely
 ///    from pauses; Web never from pauses).
-/// 2. Our own [_silenceThreshold] fallback timer (resets on every new partial).
+/// 2. Our [_silenceThreshold] fallback timer (resets on every new partial).
 ///
-/// Net effect: Android commits bubbles on natural ~1s pauses, iOS/Web on our
-/// 3s timer. Android's auto-restart gap (~100-500ms between sessions) may
-/// clip the first word or two of an immediately-resumed utterance — accepted
-/// platform limitation; the visible bubble-commit at least signals to users
-/// that they should pause briefly before continuing.
+/// Suspend strategy: after [_suspendThreshold] of no new speech at all, the
+/// service stops listening entirely and invokes the `onSuspended` callback
+/// so the consumer (ConversationNotifier) can return to neutral. Battery
+/// saver + matches the design that the mic shouldn't sit hot forever.
 class SttService {
   static const _silenceThreshold = Duration(seconds: 3);
+  static const _suspendThreshold = Duration(seconds: 60);
 
   final SpeechToText _speech = SpeechToText();
   bool _initialized = false;
@@ -25,8 +26,10 @@ class SttService {
   bool _lastWasError = false;
   String? _currentLocale;
   void Function(String text, bool isFinal)? _onResult;
+  void Function()? _onSuspended;
 
   Timer? _silenceTimer;
+  Timer? _suspendTimer;
   String _currentSessionText = '';
 
   Future<bool> _ensureInitialized() async {
@@ -60,14 +63,17 @@ class SttService {
   Future<void> startListening({
     required String locale,
     required void Function(String text, bool isFinal) onResult,
+    required void Function() onSuspended,
   }) async {
     final ok = await _ensureInitialized();
     if (!ok) return;
     _currentLocale = locale;
     _onResult = onResult;
+    _onSuspended = onSuspended;
     _shouldListen = true;
     _currentSessionText = '';
     _silenceTimer?.cancel();
+    _resetSuspendTimer();
     await _start();
   }
 
@@ -94,12 +100,12 @@ class SttService {
 
   void _onSpeechResult(SpeechRecognitionResult result) {
     final text = result.recognizedWords;
-    // Guard: don't let an empty isFinal wipe out a non-empty partial state.
     if (text.isNotEmpty && text != _currentSessionText) {
       _currentSessionText = text;
       if (kDebugMode) debugPrint('STT: partial "$_currentSessionText"');
       _onResult?.call(_currentSessionText, false);
       _resetSilenceTimer();
+      _resetSuspendTimer();
     }
 
     if (result.finalResult) {
@@ -113,15 +119,28 @@ class SttService {
     _silenceTimer = Timer(_silenceThreshold, _onSilenceTimeout);
   }
 
+  void _resetSuspendTimer() {
+    _suspendTimer?.cancel();
+    _suspendTimer = Timer(_suspendThreshold, _onSuspendTimeout);
+  }
+
   Future<void> _onSilenceTimeout() async {
     if (kDebugMode) debugPrint('STT: silence timer fired, committing "$_currentSessionText"');
     _commitCurrent();
-    // Stop and let auto-restart begin a fresh session.
     if (_speech.isListening) {
       try {
         await _speech.stop();
       } catch (_) {}
     }
+  }
+
+  Future<void> _onSuspendTimeout() async {
+    if (kDebugMode) {
+      debugPrint('STT: mic suspended after ${_suspendThreshold.inSeconds}s of silence');
+    }
+    final callback = _onSuspended;
+    await stopListening();
+    callback?.call();
   }
 
   void _commitCurrent() {
@@ -137,6 +156,7 @@ class SttService {
     _shouldListen = false;
     _currentLocale = null;
     _silenceTimer?.cancel();
+    _suspendTimer?.cancel();
     _currentSessionText = '';
     if (_speech.isListening) {
       try {
@@ -151,6 +171,7 @@ class SttService {
     _shouldListen = false;
     _currentLocale = null;
     _silenceTimer?.cancel();
+    _suspendTimer?.cancel();
     try {
       _speech.cancel();
     } catch (_) {}

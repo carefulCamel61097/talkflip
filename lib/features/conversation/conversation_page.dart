@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/theme.dart';
 import '../settings/settings_page.dart';
 import 'active_side.dart';
+import 'connectivity_provider.dart';
 import 'conversation_state.dart';
 import 'draft_bubble.dart';
 import 'language_pair.dart';
@@ -17,12 +19,36 @@ class ConversationPage extends ConsumerStatefulWidget {
 }
 
 class _ConversationPageState extends ConsumerState<ConversationPage> {
+  static const _seenSwipeHintKey = 'seen_swipe_hint';
+
   final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _maybeShowSwipeHint();
+    });
+  }
 
   @override
   void dispose() {
     _scrollController.dispose();
     super.dispose();
+  }
+
+  Future<void> _maybeShowSwipeHint() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool(_seenSwipeHintKey) ?? false) return;
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Tap a language to talk. Swipe sideways to switch sides.'),
+        duration: Duration(seconds: 5),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+    await prefs.setBool(_seenSwipeHintKey, true);
   }
 
   void _scrollToBottom() {
@@ -117,25 +143,60 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
   }
 }
 
-class _TopBar extends StatelessWidget {
+class _TopBar extends ConsumerWidget {
   const _TopBar();
 
   @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isOnline = ref.watch(connectivityProvider).value ?? true;
+    return SizedBox(
+      height: 48,
+      child: Stack(
+        children: [
+          Center(
+            child: IconButton(
+              icon: const Icon(
+                Icons.settings_outlined,
+                size: 22,
+                color: AppColors.settingsCog,
+              ),
+              tooltip: 'Settings',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const SettingsPage()),
+                );
+              },
+            ),
+          ),
+          if (!isOnline)
+            const Positioned(
+              right: 16,
+              top: 16,
+              child: _OfflineDot(),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OfflineDot extends StatelessWidget {
+  const _OfflineDot();
+
+  @override
   Widget build(BuildContext context) {
-    return Center(
-      child: IconButton(
-        icon: const Icon(
-          Icons.settings_outlined,
-          size: 22,
-          color: AppColors.settingsCog,
+    return const Tooltip(
+      message: 'Offline — translation unavailable',
+      child: SizedBox(
+        width: 10,
+        height: 10,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: Color(0xFFB0B0B0),
+            shape: BoxShape.circle,
+          ),
         ),
-        tooltip: 'Settings',
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const SettingsPage()),
-          );
-        },
       ),
     );
   }
