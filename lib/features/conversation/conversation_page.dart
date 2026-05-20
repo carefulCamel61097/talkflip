@@ -77,7 +77,7 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
       builder: (dialogContext) => AlertDialog(
         title: const Text('Microphone access needed'),
         content: const Text(
-          "Microphone access is blocked, so TalkFlip can't transcribe speech. "
+          "Microphone access is blocked, so ConvoGo can't transcribe speech. "
           "Open your device settings to enable it, then come back and tap a "
           "language chip to start.",
         ),
