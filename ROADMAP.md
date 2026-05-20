@@ -97,11 +97,12 @@ M0 → M1 → M2 → M3 → M4 is the spine. After M4 the product functions end-
 
 **Demo:** offline dot toggles with real network state; mic auto-suspends after 60s; snackbar shows once on first launch.
 
-### M9 — Code polish before testers
+### M9 — Code polish before testers ✓
 - [x] Mic permission denied flow — `_ensureMicPermission` checks status, requests if `denied`, falls back to an "Open Settings" dialog if permanently denied. Chip taps and swipes go through this gate before activating.
+- [x] Rename TalkFlip → ConvoGo (user-facing brand). Technical identifiers (`talkflip` repo / package / bundle ID / Worker URL) kept stable. See "A note on naming" in [README.md](README.md).
 - [ ] *(Deferred to [TESTING_NOTES.md](TESTING_NOTES.md))* — animation refinement, active-side highlight clarity, translation-on-offline-first-launch edge case, language picker validation, "Larger text" accessibility toggle. These are all "wait and see what real users say" rather than design-blind.
 
-**Demo:** denying mic permission produces a clear dialog with a path to system settings; granting it from settings restores normal operation.
+**Demo:** denying mic permission produces a clear dialog with a path to system settings; granting it from settings restores normal operation. App name ConvoGo throughout.
 
 ### M10 — Shipping prep (when ready)
 Not started; out of scope until you actually want to release. Includes:
