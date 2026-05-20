@@ -1,4 +1,4 @@
-# TalkFlip
+# ConvoGo
 
 A hyper-minimalist, two-person, face-to-face translation app. One phone, two languages, zero friction.
 

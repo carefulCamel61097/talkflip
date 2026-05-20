@@ -1,4 +1,4 @@
-# TalkFlip *(working title)*
+# ConvoGo
 
 A minimalist face-to-face translator for two people, one phone.
 
@@ -22,3 +22,14 @@ The whole product is shaped by a handful of principles documented in [CLAUDE.md]
 Flutter (iOS + Android) · Riverpod · `speech_to_text` (on-device STT) · Google Translate (via Cloudflare Worker proxy) · `dio` · `shared_preferences`
 
 See [CLAUDE.md](CLAUDE.md) for the full design and engineering decisions.
+
+## A note on naming
+
+The app was originally scaffolded under the working title **TalkFlip** before being renamed to ConvoGo. The user-facing brand changed; the internal identifiers did not. So you'll still see `talkflip` in:
+
+- The GitHub repo name (`carefulCamel61097/talkflip`)
+- The bundle ID (`com.carefulcamel61097.talkflip`)
+- The Dart package name (`talkflip`, used in all `import 'package:talkflip/...'` lines)
+- The Cloudflare Worker URL (`talkflip-translator.talkflip.workers.dev`)
+
+These were kept stable because changing them would mean breaking deployed infrastructure, invalidating package imports across the codebase, and reissuing the bundle ID before any app store submission. They're internal identifiers, not user-facing, so the inconsistency is contained.

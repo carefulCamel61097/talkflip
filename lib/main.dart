@@ -7,16 +7,16 @@ import 'features/conversation/language_pair.dart';
 import 'features/conversation/language_picker_page.dart';
 
 void main() {
-  runApp(const ProviderScope(child: TalkFlipApp()));
+  runApp(const ProviderScope(child: ConvoGoApp()));
 }
 
-class TalkFlipApp extends StatelessWidget {
-  const TalkFlipApp({super.key});
+class ConvoGoApp extends StatelessWidget {
+  const ConvoGoApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'TalkFlip',
+      title: 'ConvoGo',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,

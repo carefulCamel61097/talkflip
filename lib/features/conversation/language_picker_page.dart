@@ -66,7 +66,7 @@ class _LanguagePickerPageState extends ConsumerState<LanguagePickerPage> {
             children: [
               if (!_isEditing) ...[
                 const Text(
-                  'TalkFlip',
+                  'ConvoGo',
                   style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
                   textAlign: TextAlign.center,
                 ),

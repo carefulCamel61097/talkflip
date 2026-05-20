@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/theme.dart';
@@ -13,6 +14,11 @@ import 'message_bubble.dart';
 
 class ConversationPage extends ConsumerStatefulWidget {
   const ConversationPage({super.key});
+
+  /// Test bypass: skip the mic permission check entirely so widget tests
+  /// don't hang on the platform-channel call. Set to `true` in test setUp.
+  @visibleForTesting
+  static bool bypassMicPermissionInTests = false;
 
   @override
   ConsumerState<ConversationPage> createState() => _ConversationPageState();
@@ -49,6 +55,55 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
       ),
     );
     await prefs.setBool(_seenSwipeHintKey, true);
+  }
+
+  Future<bool> _ensureMicPermission() async {
+    if (ConversationPage.bypassMicPermissionInTests) return true;
+    try {
+      final status = await Permission.microphone.status;
+      if (status.isGranted) return true;
+      if (status.isDenied) {
+        final newStatus = await Permission.microphone.request();
+        if (newStatus.isGranted) return true;
+      }
+    } catch (_) {
+      // permission_handler not available (e.g., widget tests) — assume granted.
+      return true;
+    }
+
+    if (!mounted) return false;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Microphone access needed'),
+        content: const Text(
+          "Microphone access is blocked, so TalkFlip can't transcribe speech. "
+          "Open your device settings to enable it, then come back and tap a "
+          "language chip to start.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Not now'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              openAppSettings();
+            },
+            child: const Text('Open Settings'),
+          ),
+        ],
+      ),
+    );
+    return false;
+  }
+
+  Future<void> _activateWithPermission(ActiveSide side) async {
+    final granted = await _ensureMicPermission();
+    if (granted && mounted) {
+      ref.read(conversationProvider.notifier).activate(side);
+    }
   }
 
   void _scrollToBottom() {
@@ -96,9 +151,9 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
             // revealing the opposite side. Swipe right → activate left;
             // swipe left → activate right.
             if (velocity > swipeVelocityThreshold) {
-              notifier.activate(ActiveSide.left);
+              _activateWithPermission(ActiveSide.left);
             } else if (velocity < -swipeVelocityThreshold) {
-              notifier.activate(ActiveSide.right);
+              _activateWithPermission(ActiveSide.right);
             }
           },
           child: Column(
@@ -108,8 +163,8 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
                 leftCode: leftCode,
                 rightCode: rightCode,
                 activeSide: convo.activeSide,
-                onLeftTap: () => notifier.activate(ActiveSide.left),
-                onRightTap: () => notifier.activate(ActiveSide.right),
+                onLeftTap: () => _activateWithPermission(ActiveSide.left),
+                onRightTap: () => _activateWithPermission(ActiveSide.right),
               ),
               Expanded(
                 child: ListView.builder(

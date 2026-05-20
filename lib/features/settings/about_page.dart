@@ -21,7 +21,7 @@ class AboutPage extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'TalkFlip',
+              'ConvoGo',
               style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 8),
@@ -36,7 +36,7 @@ class AboutPage extends StatelessWidget {
             ),
             SizedBox(height: 8),
             Text(
-              "TalkFlip uses your microphone to transcribe what you say. "
+              "ConvoGo uses your microphone to transcribe what you say. "
               "Transcribed text is sent to Google Translate, via a thin proxy "
               "we operate, to be translated into the other language. "
               "Conversations stay on your device in memory only — they're not "

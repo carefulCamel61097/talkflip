@@ -97,11 +97,16 @@ M0 → M1 → M2 → M3 → M4 is the spine. After M4 the product functions end-
 
 **Demo:** offline dot toggles with real network state; mic auto-suspends after 60s; snackbar shows once on first launch.
 
-### M9 — Pre-ship polish
-- [ ] Animation refinement (chip activation transitions, bubble entry)
-- [ ] Edge cases: permission denied flow, no internet on first launch, language picker error states
-- [ ] App icon, splash screen
-- [ ] **Accessibility — in-app text-size control.** The "other language" person often isn't the phone owner (older traveler, elderly relative, etc.) and can't rely on the phone's OS text-scale setting. Add a "Larger text" toggle in settings — or a slider if user testing shows a binary isn't enough. Default translation font already bumped to 20sp in M7.
-- [ ] TestFlight + Google Play internal track setup
+### M9 — Code polish before testers
+- [x] Mic permission denied flow — `_ensureMicPermission` checks status, requests if `denied`, falls back to an "Open Settings" dialog if permanently denied. Chip taps and swipes go through this gate before activating.
+- [ ] *(Deferred to [TESTING_NOTES.md](TESTING_NOTES.md))* — animation refinement, active-side highlight clarity, translation-on-offline-first-launch edge case, language picker validation, "Larger text" accessibility toggle. These are all "wait and see what real users say" rather than design-blind.
 
-**Demo:** ready for beta testers.
+**Demo:** denying mic permission produces a clear dialog with a path to system settings; granting it from settings restores normal operation.
+
+### M10 — Shipping prep (when ready)
+Not started; out of scope until you actually want to release. Includes:
+- App icon and splash screen graphics
+- Apple Developer account + Mac with Xcode for iOS builds
+- Google Play Developer account
+- TestFlight + Google Play internal track setup
+- App store listings (screenshots, descriptions, privacy policy URL)

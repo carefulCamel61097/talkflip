@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:talkflip/main.dart';
+import 'package:talkflip/features/conversation/conversation_page.dart';
 import 'package:talkflip/features/conversation/draft_bubble.dart';
 import 'package:talkflip/features/conversation/language_picker_page.dart';
 import 'package:talkflip/features/conversation/translation_service.dart';
@@ -28,18 +29,27 @@ Widget _app() {
     overrides: [
       translationServiceProvider.overrideWith((ref) => _StubTranslationService()),
     ],
-    child: const TalkFlipApp(),
+    child: const ConvoGoApp(),
   );
 }
 
 void main() {
   setUp(() {
     // Default: a language pair is already stored, so tests skip the picker
-    // and land on the conversation page.
+    // and land on the conversation page. seen_swipe_hint is pre-set so the
+    // first-launch snackbar doesn't appear and interfere with assertions.
     SharedPreferences.setMockInitialValues({
       'language_pair_left': 'en',
       'language_pair_right': 'es',
+      'seen_swipe_hint': true,
     });
+    // Skip the mic permission check — the platform channel for
+    // permission_handler hangs in tests, blocking pumpAndSettle.
+    ConversationPage.bypassMicPermissionInTests = true;
+  });
+
+  tearDown(() {
+    ConversationPage.bypassMicPermissionInTests = false;
   });
 
   testWidgets('First launch (no pair stored) shows the language picker', (tester) async {
@@ -66,7 +76,7 @@ void main() {
     await tester.pumpWidget(_app());
     await tester.pumpAndSettle();
     await tester.tap(find.text('EN'));
-    await tester.pump();
+    await tester.pumpAndSettle();
     expect(find.byType(DraftBubble), findsOneWidget);
   });
 
@@ -74,7 +84,7 @@ void main() {
     await tester.pumpWidget(_app());
     await tester.pumpAndSettle();
     await tester.tap(find.text('ES'));
-    await tester.pump();
+    await tester.pumpAndSettle();
     expect(find.byType(DraftBubble), findsOneWidget);
   });
 
@@ -82,7 +92,7 @@ void main() {
     await tester.pumpWidget(_app());
     await tester.pumpAndSettle();
     await tester.fling(find.byType(Scaffold), const Offset(500, 0), 1000);
-    await tester.pump();
+    await tester.pumpAndSettle();
     final draft = tester.widget<DraftBubble>(find.byType(DraftBubble));
     expect(draft.isLeft, isTrue);
   });
@@ -91,7 +101,7 @@ void main() {
     await tester.pumpWidget(_app());
     await tester.pumpAndSettle();
     await tester.fling(find.byType(Scaffold), const Offset(-500, 0), 1000);
-    await tester.pump();
+    await tester.pumpAndSettle();
     final draft = tester.widget<DraftBubble>(find.byType(DraftBubble));
     expect(draft.isLeft, isFalse);
   });
