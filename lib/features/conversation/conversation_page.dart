@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme.dart';
+import '../settings/settings_page.dart';
 import 'active_side.dart';
 import 'conversation_state.dart';
 import 'draft_bubble.dart';
@@ -61,7 +62,9 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
         child: GestureDetector(
           behavior: HitTestBehavior.translucent,
           onHorizontalDragEnd: (details) {
-            const swipeVelocityThreshold = 300.0;
+            // Lower than typical mobile flick velocities to also catch
+            // slower mouse drags in Chrome during dev.
+            const swipeVelocityThreshold = 200.0;
             final velocity = details.primaryVelocity ?? 0.0;
             // Carousel convention: swipe pushes the current side away,
             // revealing the opposite side. Swipe right → activate left;
@@ -119,12 +122,20 @@ class _TopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 8, bottom: 4),
-      child: Icon(
-        Icons.settings_outlined,
-        size: 22,
-        color: AppColors.settingsCog,
+    return Center(
+      child: IconButton(
+        icon: const Icon(
+          Icons.settings_outlined,
+          size: 22,
+          color: AppColors.settingsCog,
+        ),
+        tooltip: 'Settings',
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const SettingsPage()),
+          );
+        },
       ),
     );
   }

@@ -34,7 +34,7 @@ class AppTextStyles {
   );
 
   static const TextStyle translated = TextStyle(
-    fontSize: 18,
+    fontSize: 20,
     color: AppColors.translatedText,
     fontWeight: FontWeight.w600,
     height: 1.3,

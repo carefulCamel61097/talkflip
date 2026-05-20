@@ -80,13 +80,15 @@ M0 → M1 → M2 → M3 → M4 is the spine. After M4 the product functions end-
 
 **Demo:** fresh install (or cleared site data on Chrome) → picker → continue → conversation page with the picked pair. Reload → straight to conversation page.
 
-### M7 — Settings page
-- [ ] Settings route accessible from the cog
-- [ ] Change languages (reuses M6 picker)
-- [ ] Clear current conversation (with confirmation)
-- [ ] About / privacy policy (static)
+### M7 — Settings page ✓
+- [x] Settings route accessible from the cog (cog is an `IconButton` that pushes `SettingsPage`)
+- [x] Change languages — reuses `LanguagePickerPage` in "edit" mode (pre-filled with current pair, AppBar with back, "Save" button). After save, `Navigator.popUntil(isFirst)` returns straight to the conversation (skipping the settings page).
+- [x] Clear current conversation — confirmation dialog → `ConversationNotifier.clearMessages()` → pops back to conversation
+- [x] About / privacy policy — static page with app description and brief privacy text
+- [x] Default translation font bumped 18→20sp (free accessibility win; configurable text-size control deferred to M9)
+- [x] Swipe velocity threshold lowered 300→200 (better Chrome mouse-drag experience; touch flicks well above either threshold)
 
-**Demo:** all settings actions work; languages and conversation state behave correctly afterward.
+**Demo:** verified on Chrome. All three settings actions work; language change pops back to conversation; clear wipes messages and pops back; about page renders.
 
 ### M8 — Status indicators + onboarding + mic suspend
 - [ ] Offline indicator via `connectivity_plus`: grey/muted-orange dot near settings cog when offline; nothing when online
@@ -99,6 +101,7 @@ M0 → M1 → M2 → M3 → M4 is the spine. After M4 the product functions end-
 - [ ] Animation refinement (chip activation transitions, bubble entry)
 - [ ] Edge cases: permission denied flow, no internet on first launch, language picker error states
 - [ ] App icon, splash screen
+- [ ] **Accessibility — in-app text-size control.** The "other language" person often isn't the phone owner (older traveler, elderly relative, etc.) and can't rely on the phone's OS text-scale setting. Add a "Larger text" toggle in settings — or a slider if user testing shows a binary isn't enough. Default translation font already bumped to 20sp in M7.
 - [ ] TestFlight + Google Play internal track setup
 
 **Demo:** ready for beta testers.

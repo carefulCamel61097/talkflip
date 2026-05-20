@@ -149,6 +149,10 @@ class ConversationNotifier extends Notifier<ConversationState> {
     state = state.copyWith(messages: updated);
   }
 
+  void clearMessages() {
+    state = state.copyWith(messages: const [], draftText: '');
+  }
+
   Future<void> retryTranslation(int id) async {
     Message? message;
     for (final m in state.messages) {

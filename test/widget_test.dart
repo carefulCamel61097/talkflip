@@ -8,6 +8,7 @@ import 'package:talkflip/main.dart';
 import 'package:talkflip/features/conversation/draft_bubble.dart';
 import 'package:talkflip/features/conversation/language_picker_page.dart';
 import 'package:talkflip/features/conversation/translation_service.dart';
+import 'package:talkflip/features/settings/settings_page.dart';
 
 class _StubTranslationService extends TranslationService {
   _StubTranslationService() : super(dio: Dio());
@@ -93,5 +94,29 @@ void main() {
     await tester.pump();
     final draft = tester.widget<DraftBubble>(find.byType(DraftBubble));
     expect(draft.isLeft, isFalse);
+  });
+
+  testWidgets('Tapping settings cog opens the settings page', (tester) async {
+    await tester.pumpWidget(_app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Settings'));
+    await tester.pumpAndSettle();
+    expect(find.byType(SettingsPage), findsOneWidget);
+    expect(find.text('Change languages'), findsOneWidget);
+    expect(find.text('Clear conversation'), findsOneWidget);
+    expect(find.text('About'), findsOneWidget);
+  });
+
+  testWidgets('Tapping "Change languages" opens the picker with current pair', (tester) async {
+    await tester.pumpWidget(_app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Settings'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Change languages'));
+    await tester.pumpAndSettle();
+    expect(find.byType(LanguagePickerPage), findsOneWidget);
+    // The current pair (English & Spanish from setUp) should be pre-selected.
+    expect(find.text('English'), findsOneWidget);
+    expect(find.text('Spanish'), findsOneWidget);
   });
 }
