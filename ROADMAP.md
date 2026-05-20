@@ -69,13 +69,16 @@ M0 → M1 → M2 → M3 → M4 is the spine. After M4 the product functions end-
 
 **Demo:** one-handed thumb-swipe between sides; chat auto-scrolls to follow the latest content.
 
-### M6 — Persistence + first-launch language picker
-- [ ] `shared_preferences` stores the language pair
-- [ ] No stored pair → language picker screen → user selects two → persisted → main page
-- [ ] Stored pair → straight to main page
-- [ ] Language list = intersection of `speech_to_text` supported locales + Google Translate supported targets
+### M6 — Persistence + first-launch language picker ✓
+- [x] `shared_preferences` stores the language pair via `LanguageRepository` + `LanguagePairNotifier` (AsyncNotifier)
+- [x] No stored pair → language picker screen → user selects two → persisted → main page
+- [x] Stored pair → straight to main page (routing via `_AppRouter` in `main.dart`)
+- [x] Language list = curated 13-language list (`SupportedLanguages.all`) chosen as the intersection of common `speech_to_text` locales + Google Translate supported codes
+- [x] Picker labels: "Your language" / "Other language" (matches the WhatsApp convention where left/green bubbles are "yours")
+- [x] Continue button disabled until both languages are selected AND they're different
+- [x] `ConversationNotifier` reads STT locale + Google Translate codes from the persisted pair; chips display the persisted labels
 
-**Demo:** fresh install picks languages once; relaunch goes straight to conversation.
+**Demo:** fresh install (or cleared site data on Chrome) → picker → continue → conversation page with the picked pair. Reload → straight to conversation page.
 
 ### M7 — Settings page
 - [ ] Settings route accessible from the cog

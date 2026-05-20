@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/supported_languages.dart';
 import 'active_side.dart';
+import 'language_pair.dart';
 import 'message.dart';
 import 'stt_service.dart';
 import 'translation_service.dart';
@@ -48,13 +50,12 @@ class ConversationNotifier extends Notifier<ConversationState> {
     return ConversationState.initial;
   }
 
-  // Hardcoded for M3/M4; M6 will source these from persisted language settings.
-  String _localeFor(ActiveSide side) {
-    return side == ActiveSide.left ? 'en_US' : 'es_ES';
-  }
+  LanguagePair? get _pair => ref.read(languagePairProvider).value;
 
-  String _langCodeFor(ActiveSide side) {
-    return side == ActiveSide.left ? 'en' : 'es';
+  Language? _languageFor(ActiveSide side) {
+    final pair = _pair;
+    if (pair == null) return null;
+    return side == ActiveSide.left ? pair.left : pair.right;
   }
 
   Future<void> activate(ActiveSide side) async {
@@ -69,8 +70,11 @@ class ConversationNotifier extends Notifier<ConversationState> {
 
     state = state.copyWith(activeSide: side, draftText: '');
 
+    final language = _languageFor(side);
+    if (language == null) return;
+
     await _stt.startListening(
-      locale: _localeFor(side),
+      locale: language.sttLocale,
       onResult: _handleSttResult,
     );
   }
@@ -86,9 +90,12 @@ class ConversationNotifier extends Notifier<ConversationState> {
     final draft = state.draftText.trim();
     if (draft.isEmpty) return;
 
+    final pair = _pair;
+    if (pair == null) return;
+
     final isLeft = state.activeSide == ActiveSide.left;
-    final source = _langCodeFor(state.activeSide);
-    final target = isLeft ? 'es' : 'en';
+    final source = isLeft ? pair.left.code : pair.right.code;
+    final target = isLeft ? pair.right.code : pair.left.code;
 
     final id = _nextMessageId++;
     final pending = Message(
@@ -103,7 +110,6 @@ class ConversationNotifier extends Notifier<ConversationState> {
       draftText: '',
     );
 
-    // Fire-and-forget translation. Result updates the message in place by ID.
     _translateMessage(id: id, text: draft, source: source, target: target);
   }
 
@@ -153,10 +159,13 @@ class ConversationNotifier extends Notifier<ConversationState> {
     }
     if (message == null) return;
 
+    final pair = _pair;
+    if (pair == null) return;
+
     _updateMessage(id: id, translatedText: null, failed: false);
 
-    final source = message.isLeft ? 'en' : 'es';
-    final target = message.isLeft ? 'es' : 'en';
+    final source = message.isLeft ? pair.left.code : pair.right.code;
+    final target = message.isLeft ? pair.right.code : pair.left.code;
     await _translateMessage(
       id: id,
       text: message.originalText,

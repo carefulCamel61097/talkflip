@@ -5,6 +5,7 @@ import '../../core/theme.dart';
 import 'active_side.dart';
 import 'conversation_state.dart';
 import 'draft_bubble.dart';
+import 'language_pair.dart';
 import 'message_bubble.dart';
 
 class ConversationPage extends ConsumerStatefulWidget {
@@ -47,8 +48,9 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
       }
     });
 
-    const leftCode = 'EN';
-    const rightCode = 'ES';
+    final pair = ref.watch(languagePairProvider).value;
+    final leftCode = pair?.left.chipLabel ?? 'EN';
+    final rightCode = pair?.right.chipLabel ?? 'ES';
 
     final showDraft = convo.activeSide != ActiveSide.neutral;
     final draftIsLeft = convo.activeSide == ActiveSide.left;
