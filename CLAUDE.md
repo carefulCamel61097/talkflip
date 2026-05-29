@@ -34,9 +34,14 @@ Anatomy of the main page, top to bottom:
 
 ### Speaker switching
 - **No "end recording" button.** Switching to the other speaker is the implicit commit.
-- **Primary (discoverable):** tap the other language chip at the top to switch sides. Chips are the visible affordance.
-- **Secondary (shortcut):** horizontal swipe does the same thing. Faster once learned, but never the only way.
-- **Active-side indication:** a border/glow highlight around the active speaker's bubbles. Do NOT dim the inactive side — both stay fully readable.
+- **Primary affordances (two, both discoverable):**
+  - Tap a language chip at the top. The most explicit affordance — picks a specific side.
+  - Tap anywhere in the chat area. Toggles the active side (left ↔ right), or activates the user's side from neutral. The most universally discoverable interaction — users naturally try tapping the chat. Failed-translation bubbles still win the tap for retry; successful bubbles pass through.
+- **Secondary (shortcut):** horizontal swipe (carousel direction) does the same thing. Faster once learned, but never the only way.
+- **Active-side indication (two unified cues):**
+  - A 12px accent-coloured dot above the active language chip — same colour as the bubble border highlight. Familiar "online" indicator pattern; immediately glanceable.
+  - A 2px accent-coloured border around the active speaker's bubbles. Border is always rendered at 2px (only the colour toggles, transparent when inactive) so activation never shifts layout.
+  - Do NOT dim the inactive side — both stay fully readable.
 - **Optional accent:** subtle background color shift on the active side. Both-side text contrast must remain unaffected.
 
 ### Microphone behavior

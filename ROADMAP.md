@@ -104,13 +104,25 @@ M0 → M1 → M2 → M3 → M4 is the spine. After M4 the product functions end-
 
 **Demo:** denying mic permission produces a clear dialog with a path to system settings; granting it from settings restores normal operation. App name ConvoGo throughout.
 
-### M10 — Shipping prep (when ready)
-Not started; out of scope until you actually want to release. Includes:
-- App icon and splash screen graphics
-- Apple Developer account + Mac with Xcode for iOS builds
-- Google Play Developer account
-- TestFlight + Google Play internal track setup
-- App store listings (screenshots, descriptions, privacy policy URL)
+### M10 — Shipping prep (in progress)
+
+Android side is in motion; iOS deferred (will pick up on the Mac when ready).
+
+Android (Play Store):
+- [x] App icon (1024×1024 master at `assets/icon/icon.png`, generated for all densities + Android 8+ adaptive icon via `flutter_launcher_icons`)
+- [x] Splash screen (teal `#128C7E` background, icon centered, generated via `flutter_native_splash` — includes Android 12+ `values-v31` setup)
+- [x] Privacy policy published at https://carefulcamel61097.github.io/talkflip/ (source in [docs/](docs/), served via GitHub Pages from the `talkflip` repo)
+- [x] Upload keystore generated at `C:\Users\Thabi\keystores\convogo-upload-key.jks`, backed up to Google Drive. Password saved in Google Passwords. Gradle wired via gitignored `android/key.properties`. Play App Signing accepted as recovery safety net.
+- [x] INTERNET permission added to `AndroidManifest.xml` (debug builds inject this implicitly; release builds don't — caught via internal testing when translation failed instantly)
+- [x] Play Console: package name `com.carefulcamel61097.talkflip`, content rating, target audience, data safety form, contact details, store category (Travel & Local), tags (Travel and local, Tools, Productivity, Communication)
+- [x] Main store listing: title, short + full description, 512×512 icon, 1024×500 feature graphic, 4 screenshots (chat, picker, settings, about)
+- [x] Internal testing release shipped (versionCode 2), translation verified working
+- [ ] Closed testing release: sent for Play review on 2026-05-20 (the 14-day-12-tester gauntlet must complete before production access unlocks)
+- [ ] Post-internal UX additions (tap-anywhere-in-chat to switch sides, active-side dot above chip, TalkFlip→ConvoGo typo fix in mic dialog + iOS Info.plist) are committed but **not yet built into a v3 AAB** — will bundle with tester feedback when v3 ships
+- [ ] Apply for production access after the 14-day gauntlet completes
+
+iOS (App Store):
+- [ ] All work deferred to the Mac. App icon / splash assets generate from the same `assets/icon/icon.png` master via the same tooling. iOS bundle metadata (`CFBundleDisplayName`, `CFBundleName`) already updated to ConvoGo. `NSMicrophoneUsageDescription` and `NSSpeechRecognitionUsageDescription` already in Info.plist.
 
 ## Beyond v1.0 — post-launch ideas
 
