@@ -167,27 +167,42 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
                 onRightTap: () => _activateWithPermission(ActiveSide.right),
               ),
               Expanded(
-                child: ListView.builder(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  itemCount: convo.messages.length + (showDraft ? 1 : 0),
-                  itemBuilder: (context, index) {
-                    if (index < convo.messages.length) {
-                      final message = convo.messages[index];
-                      final isActiveSide =
-                          (message.isLeft && convo.activeSide == ActiveSide.left) ||
-                              (!message.isLeft && convo.activeSide == ActiveSide.right);
-                      return MessageBubble(
-                        message: message,
-                        isActiveSide: isActiveSide,
-                        onRetry: () => notifier.retryTranslation(message.id),
-                      );
-                    }
-                    return DraftBubble(
-                      text: convo.draftText,
-                      isLeft: draftIsLeft,
-                    );
+                child: GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onTap: () {
+                    // Tap anywhere in the chat area switches sides (or
+                    // activates left from neutral). Failed-translation
+                    // bubbles still win for retry because their child
+                    // GestureDetector handles the tap first.
+                    final next = switch (convo.activeSide) {
+                      ActiveSide.neutral => ActiveSide.left,
+                      ActiveSide.left => ActiveSide.right,
+                      ActiveSide.right => ActiveSide.left,
+                    };
+                    _activateWithPermission(next);
                   },
+                  child: ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    itemCount: convo.messages.length + (showDraft ? 1 : 0),
+                    itemBuilder: (context, index) {
+                      if (index < convo.messages.length) {
+                        final message = convo.messages[index];
+                        final isActiveSide =
+                            (message.isLeft && convo.activeSide == ActiveSide.left) ||
+                                (!message.isLeft && convo.activeSide == ActiveSide.right);
+                        return MessageBubble(
+                          message: message,
+                          isActiveSide: isActiveSide,
+                          onRetry: () => notifier.retryTranslation(message.id),
+                        );
+                      }
+                      return DraftBubble(
+                        text: convo.draftText,
+                        isLeft: draftIsLeft,
+                      );
+                    },
+                  ),
                 ),
               ),
             ],
@@ -311,19 +326,37 @@ class _LanguageChip extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-        decoration: BoxDecoration(
-          color: isActive ? AppColors.activeChipFill : AppColors.inactiveChipFill,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppColors.accent, width: 1.5),
-        ),
-        child: Text(
-          code,
-          style: AppTextStyles.languageChip.copyWith(
-            color: isActive ? AppColors.activeChipText : AppColors.inactiveChipText,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 12,
+            height: 12,
+            child: isActive
+                ? const DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: AppColors.accent,
+                      shape: BoxShape.circle,
+                    ),
+                  )
+                : null,
           ),
-        ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+            decoration: BoxDecoration(
+              color: isActive ? AppColors.activeChipFill : AppColors.inactiveChipFill,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: AppColors.accent, width: 1.5),
+            ),
+            child: Text(
+              code,
+              style: AppTextStyles.languageChip.copyWith(
+                color: isActive ? AppColors.activeChipText : AppColors.inactiveChipText,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
