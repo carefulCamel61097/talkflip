@@ -42,6 +42,13 @@ class ConversationNotifier extends Notifier<ConversationState> {
   late final TranslationService _translation;
   int _nextMessageId = 0;
 
+  /// Incremented every time we (re)start listening for a new side. STT result
+  /// callbacks capture the epoch they were started under; a callback whose
+  /// epoch no longer matches is a straggler from a session we've already
+  /// switched away from, and is ignored so its text can't land on the new
+  /// side. See the mid-speech-switch fix.
+  int _listenEpoch = 0;
+
   @override
   ConversationState build() {
     _stt = SttService();
@@ -62,12 +69,23 @@ class ConversationNotifier extends Notifier<ConversationState> {
     if (side == ActiveSide.neutral) return;
     if (side == state.activeSide) return;
 
-    if (state.draftText.trim().isNotEmpty) {
-      _commitDraft();
-    }
+    // Capture the in-flight draft and the side it was spoken on *before* we
+    // touch anything, so it commits to the original speaker's side regardless
+    // of what we're switching to.
+    final previousSide = state.activeSide;
+    final pendingDraft = state.draftText;
 
+    // Stop first: SttService detaches its callback, so the dying session's
+    // final result can no longer be delivered to anyone.
     await _stt.stopListening();
 
+    if (previousSide != ActiveSide.neutral) {
+      _commitText(pendingDraft, previousSide);
+    }
+
+    // Retire the old session's epoch; any straggler that still slips through
+    // will fail the epoch check in _handleSttResult.
+    final epoch = ++_listenEpoch;
     state = state.copyWith(activeSide: side, draftText: '');
 
     final language = _languageFor(side);
@@ -75,15 +93,18 @@ class ConversationNotifier extends Notifier<ConversationState> {
 
     await _stt.startListening(
       locale: language.sttLocale,
-      onResult: _handleSttResult,
+      onResult: (text, isFinal) => _handleSttResult(epoch, side, text, isFinal),
       onSuspended: _handleSttSuspended,
     );
   }
 
-  void _handleSttResult(String text, bool isFinal) {
+  void _handleSttResult(int epoch, ActiveSide side, String text, bool isFinal) {
+    // Straggler from a session we've already switched away from — ignore it so
+    // its text can't leak onto the now-active side.
+    if (epoch != _listenEpoch) return;
     state = state.copyWith(draftText: text);
     if (isFinal) {
-      _commitDraft();
+      _commitText(text, side);
     }
   }
 
@@ -91,14 +112,18 @@ class ConversationNotifier extends Notifier<ConversationState> {
     state = state.copyWith(activeSide: ActiveSide.neutral, draftText: '');
   }
 
-  void _commitDraft() {
-    final draft = state.draftText.trim();
+  /// Commits [rawText] as a message attributed to [side] — the side the words
+  /// were actually spoken on, which is not necessarily the currently active
+  /// side (a switch mid-utterance commits to the side that was active when the
+  /// speech happened).
+  void _commitText(String rawText, ActiveSide side) {
+    final draft = rawText.trim();
     if (draft.isEmpty) return;
 
     final pair = _pair;
     if (pair == null) return;
 
-    final isLeft = state.activeSide == ActiveSide.left;
+    final isLeft = side == ActiveSide.left;
     final source = isLeft ? pair.left.code : pair.right.code;
     final target = isLeft ? pair.right.code : pair.left.code;
 

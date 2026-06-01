@@ -155,6 +155,12 @@ class SttService {
   Future<void> stopListening() async {
     _shouldListen = false;
     _currentLocale = null;
+    // Detach before stopping: _speech.stop() can fire one last final result as
+    // it tears down, and we must not deliver that straggler to whatever session
+    // comes next. The consumer also guards by epoch, but cutting it off here is
+    // the clean break.
+    _onResult = null;
+    _onSuspended = null;
     _silenceTimer?.cancel();
     _suspendTimer?.cancel();
     _currentSessionText = '';
