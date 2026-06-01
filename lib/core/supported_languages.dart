@@ -30,8 +30,8 @@ class SupportedLanguages {
   SupportedLanguages._();
 
   /// Curated list — intersection of common speech_to_text locales (iOS +
-  /// Android) and Google Translate supported targets. Trimmed to ~13 of the
-  /// most common languages for MVP. Add more as needed.
+  /// Android) and Google Translate supported targets. ~15 common languages
+  /// for MVP. Add more as needed.
   static const List<Language> all = [
     Language(code: 'en', chipLabel: 'EN', displayName: 'English', sttLocale: 'en_US'),
     Language(code: 'es', chipLabel: 'ES', displayName: 'Spanish', sttLocale: 'es_ES'),
@@ -46,6 +46,8 @@ class SupportedLanguages {
     Language(code: 'zh', chipLabel: 'ZH', displayName: 'Mandarin Chinese', sttLocale: 'zh_CN'),
     Language(code: 'ar', chipLabel: 'AR', displayName: 'Arabic', sttLocale: 'ar_SA'),
     Language(code: 'hi', chipLabel: 'HI', displayName: 'Hindi', sttLocale: 'hi_IN'),
+    Language(code: 'th', chipLabel: 'TH', displayName: 'Thai', sttLocale: 'th_TH'),
+    Language(code: 'sq', chipLabel: 'SQ', displayName: 'Albanian', sttLocale: 'sq_AL'),
   ];
 
   static Language? byCode(String code) {
