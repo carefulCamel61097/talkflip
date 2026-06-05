@@ -6,7 +6,13 @@ import '../../core/config.dart';
 
 class TranslationException implements Exception {
   final String message;
-  const TranslationException(this.message);
+
+  /// True when the Worker's free-tier monthly cap has been hit. This is a
+  /// non-retryable state (retrying won't help until the month resets), so the
+  /// UI surfaces it differently from a generic, retryable failure.
+  final bool limitReached;
+
+  const TranslationException(this.message, {this.limitReached = false});
 
   @override
   String toString() => 'TranslationException: $message';
@@ -50,6 +56,15 @@ class TranslationService {
       return translatedText;
     } on DioException catch (e) {
       if (kDebugMode) debugPrint('Translation DioException: ${e.message}');
+      final data = e.response?.data;
+      if (e.response?.statusCode == 429 &&
+          data is Map &&
+          data['code'] == 'MONTHLY_LIMIT') {
+        throw const TranslationException(
+          'Free translation limit reached this month',
+          limitReached: true,
+        );
+      }
       throw TranslationException(_userMessageFor(e));
     } on TranslationException {
       rethrow;

@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -142,4 +145,65 @@ void main() {
     expect(find.text('English'), findsOneWidget);
     expect(find.text('Spanish'), findsOneWidget);
   });
+
+  test('translate() flags limitReached on a 429 MONTHLY_LIMIT response', () async {
+    final dio = Dio(BaseOptions(baseUrl: 'https://example.test'));
+    dio.httpClientAdapter = _FakeAdapter(
+      statusCode: 429,
+      body: {
+        'error': 'Free translation limit reached this month',
+        'code': 'MONTHLY_LIMIT',
+      },
+    );
+    final service = TranslationService(dio: dio);
+
+    await expectLater(
+      service.translate(text: 'hallo', source: 'nl', target: 'it'),
+      throwsA(isA<TranslationException>()
+          .having((e) => e.limitReached, 'limitReached', isTrue)),
+    );
+  });
+
+  test('translate() treats other errors as generic (retryable) failures', () async {
+    final dio = Dio(BaseOptions(baseUrl: 'https://example.test'));
+    dio.httpClientAdapter = _FakeAdapter(
+      statusCode: 500,
+      body: {'error': 'Translation failed'},
+    );
+    final service = TranslationService(dio: dio);
+
+    await expectLater(
+      service.translate(text: 'hallo', source: 'nl', target: 'it'),
+      throwsA(isA<TranslationException>()
+          .having((e) => e.limitReached, 'limitReached', isFalse)),
+    );
+  });
+}
+
+/// Minimal Dio adapter that returns a canned JSON response with a chosen
+/// status code, so we can exercise TranslationService's error mapping without
+/// a real network call.
+class _FakeAdapter implements HttpClientAdapter {
+  final int statusCode;
+  final Map<String, dynamic> body;
+
+  _FakeAdapter({required this.statusCode, required this.body});
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    return ResponseBody.fromString(
+      jsonEncode(body),
+      statusCode,
+      headers: {
+        Headers.contentTypeHeader: [Headers.jsonContentType],
+      },
+    );
+  }
+
+  @override
+  void close({bool force = false}) {}
 }

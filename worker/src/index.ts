@@ -1,6 +1,13 @@
 interface Env {
   GOOGLE_TRANSLATE_API_KEY: string;
+  USAGE: KVNamespace;
 }
+
+/// Global monthly character cap, kept deliberately below Google's 500k/month
+/// free tier. The ~50k margin absorbs KV's eventual-consistency races (the
+/// read-modify-write counter can briefly undercount under concurrency) so the
+/// real free-tier limit is never breached, i.e. we never get billed.
+const MONTHLY_CHAR_CAP = 450_000;
 
 interface TranslateRequest {
   text: string;
@@ -43,6 +50,18 @@ export default {
       );
     }
 
+    // Free-tier hard stop. Google bills by characters sent, so we count the
+    // source text length against a per-calendar-month (UTC) running total.
+    const monthKey = `chars:${new Date().toISOString().slice(0, 7)}`;
+    const used = parseInt((await env.USAGE.get(monthKey)) ?? '0', 10) || 0;
+    const cost = body.text.length;
+    if (used + cost > MONTHLY_CHAR_CAP) {
+      return jsonResponse(
+        { error: 'Free translation limit reached this month', code: 'MONTHLY_LIMIT' },
+        429,
+      );
+    }
+
     const url = new URL('https://translation.googleapis.com/language/translate/v2');
     url.searchParams.set('key', env.GOOGLE_TRANSLATE_API_KEY);
 
@@ -70,6 +89,12 @@ export default {
     if (!translatedText) {
       return jsonResponse({ error: 'No translation in response' }, 502);
     }
+
+    // Only count successful translations (Google only bills those). TTL lets
+    // old month buckets expire on their own.
+    await env.USAGE.put(monthKey, String(used + cost), {
+      expirationTtl: 70 * 24 * 60 * 60,
+    });
 
     return jsonResponse({ translatedText });
   },

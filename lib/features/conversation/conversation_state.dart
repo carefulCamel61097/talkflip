@@ -175,8 +175,13 @@ class ConversationNotifier extends Notifier<ConversationState> {
         target: target,
       );
       _updateMessage(id: id, translatedText: translated, failed: false);
-    } on TranslationException {
-      _updateMessage(id: id, translatedText: null, failed: true);
+    } on TranslationException catch (e) {
+      _updateMessage(
+        id: id,
+        translatedText: null,
+        failed: !e.limitReached,
+        limitReached: e.limitReached,
+      );
     }
   }
 
@@ -184,6 +189,7 @@ class ConversationNotifier extends Notifier<ConversationState> {
     required int id,
     required String? translatedText,
     required bool failed,
+    bool limitReached = false,
   }) {
     final updated = state.messages.map((m) {
       if (m.id != id) return m;
@@ -193,6 +199,7 @@ class ConversationNotifier extends Notifier<ConversationState> {
         translatedText: translatedText,
         isLeft: m.isLeft,
         translationFailed: failed,
+        limitReached: limitReached,
       );
     }).toList();
     state = state.copyWith(messages: updated);

@@ -65,6 +65,27 @@ class MessageBubble extends StatelessWidget {
     if (message.translatedText != null) {
       return Text(message.translatedText!, style: AppTextStyles.translated);
     }
+    if (message.limitReached) {
+      // Non-retryable: the monthly free-tier cap was hit. No retry affordance
+      // because retrying won't help until the month resets.
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.hourglass_empty, size: 16, color: AppColors.subtleText),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              'monthly translation limit reached',
+              style: AppTextStyles.translated.copyWith(
+                fontSize: 14,
+                color: AppColors.subtleText,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ),
+        ],
+      );
+    }
     if (message.translationFailed) {
       return Row(
         mainAxisSize: MainAxisSize.min,
