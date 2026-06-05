@@ -146,7 +146,9 @@ Captured here so they don't get lost. None are committed; each will need a desig
 ### Romanization of non-Latin scripts
 Optional Settings toggle (off by default) to show Latin-alphabet transliteration alongside the translation for scripts like Thai, Japanese, Korean, Chinese, Russian, Arabic, Hindi (e.g. สวัสดี → *sawatdi*). Serves "read, don't listen" (a traveler who can't read the script can't use the output) and doubles as a language-learning aid.
 
-**Key unknown:** where the romanization comes from. Either Google Cloud Translation v3's official `romanizeText` endpoint (needs the Worker to move from API-key to service-account OAuth, plus pricing/Thai-quality verification), or client-side transliteration libraries (no backend change but uneven quality — Thai and Japanese are genuinely hard). Needs a design pass before becoming a milestone.
+**Status: DEFERRED (2026-06).** Researched and parked — no option clears the minimalist + free bar. Google's official `romanizeText` (v3) doesn't support Thai, Chinese, or Korean (and needs service-account OAuth); there's no usable on-device Dart romanizer; hand-rolling RTGS is real work; and the only free Thai path is the unofficial `translate_a/single` endpoint, which is too fragile/ToS-gray to ship.
+
+**Revisit when** a single decent, free, low-effort option covers **Thai, Chinese, Japanese, and Korean** (the non-Latin scripts that matter for this app) — e.g. ML Kit gaining romanization, a maintained Dart library, or accepting the unofficial endpoint for a non-production build.
 
 **Tracked in:** [issue #1](https://github.com/carefulCamel61097/talkflip/issues/1).
 
