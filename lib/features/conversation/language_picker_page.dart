@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/supported_languages.dart';
 import '../../core/theme.dart';
 import 'language_pair.dart';
+import 'language_search_page.dart';
 
 class LanguagePickerPage extends ConsumerStatefulWidget {
   /// When non-null, the picker is in "edit" mode: shown above the conversation
@@ -81,12 +82,14 @@ class _LanguagePickerPageState extends ConsumerState<LanguagePickerPage> {
               _LanguageSelector(
                 label: 'Your language',
                 selected: _left,
+                exclude: _right,
                 onChanged: (lang) => setState(() => _left = lang),
               ),
               const SizedBox(height: 24),
               _LanguageSelector(
                 label: 'Other language',
                 selected: _right,
+                exclude: _left,
                 onChanged: (lang) => setState(() => _right = lang),
               ),
               const Spacer(),
@@ -115,40 +118,65 @@ class _LanguagePickerPageState extends ConsumerState<LanguagePickerPage> {
 class _LanguageSelector extends StatelessWidget {
   final String label;
   final Language? selected;
-  final ValueChanged<Language?> onChanged;
+
+  /// The other side's current pick, omitted from the search list so the same
+  /// language can't be chosen for both sides.
+  final Language? exclude;
+  final ValueChanged<Language> onChanged;
 
   const _LanguageSelector({
     required this.label,
     required this.selected,
+    required this.exclude,
     required this.onChanged,
   });
 
+  Future<void> _openSearch(BuildContext context) async {
+    final picked = await Navigator.push<Language>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => LanguageSearchPage(
+          selectedCode: selected?.code,
+          excludeCode: exclude?.code,
+        ),
+      ),
+    );
+    if (picked != null) onChanged(picked);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final hasSelection = selected != null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: const TextStyle(fontSize: 14, color: AppColors.subtleText)),
         const SizedBox(height: 8),
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppColors.accent, width: 1.5),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<Language>(
-              value: selected,
-              isExpanded: true,
-              hint: const Text('Select…'),
-              items: SupportedLanguages.all.map((lang) {
-                return DropdownMenuItem<Language>(
-                  value: lang,
-                  child: Text(lang.displayName),
-                );
-              }).toList(),
-              onChanged: onChanged,
+        InkWell(
+          onTap: () => _openSearch(context),
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppColors.accent, width: 1.5),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    hasSelection ? selected!.displayName : 'Select…',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: hasSelection
+                          ? AppColors.translatedText
+                          : AppColors.subtleText,
+                    ),
+                  ),
+                ),
+                const Icon(Icons.arrow_drop_down, color: AppColors.accent),
+              ],
             ),
           ),
         ),

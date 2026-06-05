@@ -146,6 +146,29 @@ void main() {
     expect(find.text('Spanish'), findsOneWidget);
   });
 
+  testWidgets('Language search: filter and pick a language', (tester) async {
+    // No stored pair → first-launch picker.
+    SharedPreferences.setMockInitialValues({'seen_swipe_hint': true});
+    await tester.pumpWidget(_app());
+    await tester.pumpAndSettle();
+    expect(find.byType(LanguagePickerPage), findsOneWidget);
+
+    // Both selectors start empty.
+    expect(find.text('Select…'), findsNWidgets(2));
+
+    // Open the search page from the first selector, filter to Thai, pick it.
+    await tester.tap(find.text('Select…').first);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'thai');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Thai'));
+    await tester.pumpAndSettle();
+
+    // Selection is reflected back on the picker.
+    expect(find.text('Thai'), findsOneWidget);
+    expect(find.text('Select…'), findsOneWidget);
+  });
+
   test('translate() flags limitReached on a 429 MONTHLY_LIMIT response', () async {
     final dio = Dio(BaseOptions(baseUrl: 'https://example.test'));
     dio.httpClientAdapter = _FakeAdapter(

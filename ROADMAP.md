@@ -129,13 +129,17 @@ iOS (App Store):
 Captured here so they don't get lost. None are committed; each will need a design pass before it becomes a milestone. Listed in rough order of how "free" they feel — language expansion is mostly mechanical, monetisation needs a strategy decision, videocall mode is a real product redesign.
 
 ### More languages
-Currently 15: EN, ES, FR, DE, IT, PT, NL, RU, JA, KO, ZH, AR, HI, TH, SQ. The list is the intersection of `speech_to_text` supported locales and Google Translate codes, picked for global coverage with a minimal-yet-meaningful set. (TH and SQ added for personal use — Thai because the maintainer lives in Thailand; Albanian for cross-family use. Albanian speech-in routes through Google's recognizer on Android but likely lacks iOS support — see TESTING_NOTES.md.)
+~31 languages, gated on the intersection of Apple `SFSpeechRecognizer` published locales (the stricter STT platform) and Google Translate codes. See `SupportedLanguages.all` in `lib/core/supported_languages.dart`. One STT locale per language.
 
 **To add more, per language:**
 - Verify the locale is in `speech_to_text` (varies by platform — iOS and Android have different lists).
 - Verify the language has a Google Translate code (almost always yes).
 - Add a `Language` entry to `SupportedLanguages.all` in `lib/core/supported_languages.dart`.
 - Test that real speech in that language gets transcribed accurately enough to be useful — quality varies wildly (some Indian languages, some African languages, less-common European ones).
+
+**Confidence without manual testing:** rather than spot-test each language, gate the list on the platform vendors' *published* STT support — Apple's `SFSpeechRecognizer` supported locales (the stricter platform) intersected with Google Translate. Anything Apple lists is very likely also supported by Android/Google. This yields ~31 languages we can trust on most devices with zero hand-testing.
+
+**Future — device-driven list (Option B):** instead of a static list, build the picker at runtime from the device's *actual* STT locales (`SpeechToText.locales()`) ∩ Google Translate. Self-curating and honest — each phone only shows what it can really transcribe — and it makes the iOS-vs-Android coverage gap (e.g. Albanian) disappear automatically. Deferred because the per-device-varying list needs careful UX and more language metadata, but it's the elegant long-term answer.
 
 **Open question:** for languages where `speech_to_text` quality is poor, fall back to cloud STT (Whisper via a Worker endpoint, or Google Cloud Speech). This is noted in CLAUDE.md as the per-language STT fallback open question.
 
