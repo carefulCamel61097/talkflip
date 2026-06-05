@@ -88,6 +88,19 @@ void main() {
     expect(find.byType(DraftBubble), findsOneWidget);
   });
 
+  testWidgets('Tapping the already-active chip turns the side off (neutral)', (tester) async {
+    await tester.pumpWidget(_app());
+    await tester.pumpAndSettle();
+    // First tap activates the left side.
+    await tester.tap(find.text('EN'));
+    await tester.pumpAndSettle();
+    expect(find.byType(DraftBubble), findsOneWidget);
+    // Second tap on the same chip deactivates back to neutral.
+    await tester.tap(find.text('EN'));
+    await tester.pumpAndSettle();
+    expect(find.byType(DraftBubble), findsNothing);
+  });
+
   testWidgets('Swiping right activates the left side (carousel convention)', (tester) async {
     await tester.pumpWidget(_app());
     await tester.pumpAndSettle();

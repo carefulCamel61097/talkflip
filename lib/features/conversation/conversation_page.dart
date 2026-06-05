@@ -106,6 +106,18 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
     }
   }
 
+  /// Tapping a language chip activates its side — unless that side is already
+  /// active, in which case it turns it off (back to neutral). Reads as an
+  /// on/off toggle on the lit-up chip, and gives the user a deliberate way to
+  /// stop the hot mic without waiting out the 60s auto-suspend.
+  void _onChipTap(ActiveSide side) {
+    if (ref.read(conversationProvider).activeSide == side) {
+      ref.read(conversationProvider.notifier).deactivate();
+    } else {
+      _activateWithPermission(side);
+    }
+  }
+
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scrollController.hasClients) return;
@@ -163,8 +175,8 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
                 leftCode: leftCode,
                 rightCode: rightCode,
                 activeSide: convo.activeSide,
-                onLeftTap: () => _activateWithPermission(ActiveSide.left),
-                onRightTap: () => _activateWithPermission(ActiveSide.right),
+                onLeftTap: () => _onChipTap(ActiveSide.left),
+                onRightTap: () => _onChipTap(ActiveSide.right),
               ),
               Expanded(
                 child: GestureDetector(

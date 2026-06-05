@@ -98,6 +98,25 @@ class ConversationNotifier extends Notifier<ConversationState> {
     );
   }
 
+  /// Turns the active side off, returning to neutral and stopping the mic.
+  /// Mirrors the side-switch: the in-flight draft commits to the side it was
+  /// spoken on, so turning off mid-sentence doesn't silently eat words.
+  /// Reached by tapping the already-active language chip.
+  Future<void> deactivate() async {
+    if (state.activeSide == ActiveSide.neutral) return;
+
+    final previousSide = state.activeSide;
+    final pendingDraft = state.draftText;
+
+    await _stt.stopListening();
+
+    _commitText(pendingDraft, previousSide);
+
+    // Retire the old session's epoch so any straggler callback is dropped.
+    _listenEpoch++;
+    state = state.copyWith(activeSide: ActiveSide.neutral, draftText: '');
+  }
+
   void _handleSttResult(int epoch, ActiveSide side, String text, bool isFinal) {
     // Straggler from a session we've already switched away from — ignore it so
     // its text can't leak onto the now-active side.

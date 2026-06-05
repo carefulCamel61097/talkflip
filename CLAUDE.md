@@ -35,7 +35,7 @@ Anatomy of the main page, top to bottom:
 ### Speaker switching
 - **No "end recording" button.** Switching to the other speaker is the implicit commit.
 - **Primary affordances (two, both discoverable):**
-  - Tap a language chip at the top. The most explicit affordance — picks a specific side.
+  - Tap a language chip at the top. The most explicit affordance — picks a specific side. Tapping the *already-active* chip turns that side off (back to neutral), acting as a deliberate mic-off toggle. The in-flight draft commits to its side first, same as a side-switch.
   - Tap anywhere in the chat area. Toggles the active side (left ↔ right), or activates the user's side from neutral. The most universally discoverable interaction — users naturally try tapping the chat. Failed-translation bubbles still win the tap for retry; successful bubbles pass through.
 - **Secondary (shortcut):** horizontal swipe (carousel direction) does the same thing. Faster once learned, but never the only way.
 - **Active-side indication (two unified cues):**
@@ -47,7 +47,7 @@ Anatomy of the main page, top to bottom:
 ### Microphone behavior
 - **Continuous listening on the active side.** Mic stays open until the other side is activated, or until a longer silence suspends it (see below).
 - **Intra-turn silence threshold.** Bubble commits when *either* (a) the platform STT engine fires `isFinal=true` (Android ~1s; iOS/Web rarely from natural pauses) *or* (b) our 3s fallback silence timer fires. Net effect: Android commits on ~1s sentence-end pauses (matching its native VAD); iOS and Web commit on 3s. Not used to switch speakers — switching is always explicit.
-- **Neutral state.** Neither side is active. Reached on app open before first interaction, after a longer total silence (e.g., 30–60s, battery-saving), or after a deliberate "stop" gesture (TBD if needed).
+- **Neutral state.** Neither side is active. Reached on app open before first interaction, after a longer total silence (e.g., 30–60s, battery-saving), or by deliberately tapping the active language chip to turn the mic off.
 - **Activating from neutral.** Tapping a language chip OR swiping horizontally must activate the corresponding side. Swipe must work in neutral state, not only when switching between two active states.
 - **Live draft bubble.** Words stream in real-time in a faint bubble as the speaker talks. On commit (silence threshold OR side switch), the draft is finalized and translated.
 
