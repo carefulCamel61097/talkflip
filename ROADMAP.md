@@ -129,7 +129,7 @@ iOS (App Store):
 Captured here so they don't get lost. None are committed; each will need a design pass before it becomes a milestone. Listed in rough order of how "free" they feel — language expansion is mostly mechanical, monetisation needs a strategy decision, videocall mode is a real product redesign.
 
 ### More languages
-Currently 13: EN, ES, FR, DE, IT, PT, NL, RU, JA, KO, ZH, AR, HI. The list is the intersection of `speech_to_text` supported locales and Google Translate codes, picked for global coverage with a minimal-yet-meaningful set.
+Currently 15: EN, ES, FR, DE, IT, PT, NL, RU, JA, KO, ZH, AR, HI, TH, SQ. The list is the intersection of `speech_to_text` supported locales and Google Translate codes, picked for global coverage with a minimal-yet-meaningful set. (TH and SQ added for personal use — Thai because the maintainer lives in Thailand; Albanian for cross-family use. Albanian speech-in routes through Google's recognizer on Android but likely lacks iOS support — see TESTING_NOTES.md.)
 
 **To add more, per language:**
 - Verify the locale is in `speech_to_text` (varies by platform — iOS and Android have different lists).
@@ -138,6 +138,13 @@ Currently 13: EN, ES, FR, DE, IT, PT, NL, RU, JA, KO, ZH, AR, HI. The list is th
 - Test that real speech in that language gets transcribed accurately enough to be useful — quality varies wildly (some Indian languages, some African languages, less-common European ones).
 
 **Open question:** for languages where `speech_to_text` quality is poor, fall back to cloud STT (Whisper via a Worker endpoint, or Google Cloud Speech). This is noted in CLAUDE.md as the per-language STT fallback open question.
+
+### Romanization of non-Latin scripts
+Optional Settings toggle (off by default) to show Latin-alphabet transliteration alongside the translation for scripts like Thai, Japanese, Korean, Chinese, Russian, Arabic, Hindi (e.g. สวัสดี → *sawatdi*). Serves "read, don't listen" (a traveler who can't read the script can't use the output) and doubles as a language-learning aid.
+
+**Key unknown:** where the romanization comes from. Either Google Cloud Translation v3's official `romanizeText` endpoint (needs the Worker to move from API-key to service-account OAuth, plus pricing/Thai-quality verification), or client-side transliteration libraries (no backend change but uneven quality — Thai and Japanese are genuinely hard). Needs a design pass before becoming a milestone.
+
+**Tracked in:** [issue #1](https://github.com/carefulCamel61097/talkflip/issues/1).
 
 ### Monetisation
 ConvoGo currently has no revenue model. Translation costs accrue on the free tier of Google Cloud Translation (500k chars/month) — fine for now, but a problem at scale.
