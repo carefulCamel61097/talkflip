@@ -163,6 +163,20 @@ ConvoGo currently has no revenue model. Translation costs accrue on the free tie
 
 **Open questions:** what's the trigger — the 500k Google free-tier cap, $X/month in costs, or earlier (so growth can be funded)? Per-device tracking integrity (people can reinstall). iOS and Android billing differences.
 
+### Messaging mode (text-only sibling app)
+A separate, STT-free version: a bilingual messaging app. Each person types in their own language; every message shows both the **original** (sender's language) and the **translation** (recipient's language) — the same dual-text bubble ConvoGo already uses. No microphone, no speech recognition.
+
+**Why it's appealing:**
+- Reuses the existing translation infrastructure (Worker + Google Translate) directly; the dual-text bubble UI carries over unchanged.
+- Drops all the STT complexity (mic permissions, platform recognizer quirks, the Android session-gap problem, per-language STT quality).
+- Works in contexts where speaking is awkward or impossible (quiet rooms, async conversations, accessibility for deaf/hard-of-hearing users).
+
+**Why it's significant scope:**
+- It breaks the "two people, one phone, one moment" model — this is **two devices, remote, asynchronous**, which means a real messaging backend: identity/accounts, real-time delivery, message persistence, push notifications. That's a much larger build than the current serverless-proxy setup, and it's where most of the cost/effort lives.
+- Translation volume scales with message count across many users → the free-tier cap math (see Monetisation) becomes more pressing.
+
+**Open question:** is this a mode inside ConvoGo or a separate product sharing the translation infrastructure? Almost certainly a separate product — the networking/accounts layer is a different beast from the current one-phone app.
+
 ### Videocall mode
 Currently ConvoGo is built for the "two people, one phone, face-to-face" moment. A natural adjacent use case: two people on a video call, each speaking their own language, ConvoGo running on one side and translating the other side's audio in real time.
 
