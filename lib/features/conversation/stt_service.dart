@@ -32,6 +32,13 @@ class SttService {
   Timer? _suspendTimer;
   String _currentSessionText = '';
 
+  /// Monotonic session generation. Bumped on every [startListening] and
+  /// [stopListening] so that a result callback from a superseded native
+  /// session (e.g. the old side's final arriving *after* the user switched)
+  /// can be dropped before it ever reaches [_onResult] and lands on the wrong
+  /// side. Each native `listen` captures the generation it was started under.
+  int _sessionGen = 0;
+
   Future<bool> _ensureInitialized() async {
     if (_initialized) return true;
     try {
@@ -67,6 +74,9 @@ class SttService {
   }) async {
     final ok = await _ensureInitialized();
     if (!ok) return;
+    // New session generation: any in-flight callback from a prior session is
+    // now stale and will be dropped by _onSpeechResult's generation check.
+    _sessionGen++;
     _currentLocale = locale;
     _onResult = onResult;
     _onSuspended = onSuspended;
@@ -81,10 +91,14 @@ class SttService {
     if (!_shouldListen || _currentLocale == null) return;
     if (_speech.isListening) return;
     _currentSessionText = '';
+    // Capture the generation this native session belongs to. Auto-restarts
+    // (via _handleStatus) keep the same generation; only start/stopListening
+    // advance it. Results carry this generation so stale ones get dropped.
+    final gen = _sessionGen;
     if (kDebugMode) debugPrint('STT: starting session (locale=$_currentLocale)');
     try {
       await _speech.listen(
-        onResult: _onSpeechResult,
+        onResult: (result) => _onSpeechResult(result, gen),
         localeId: _currentLocale,
         listenFor: const Duration(minutes: 30),
         pauseFor: const Duration(seconds: 30),
@@ -98,7 +112,11 @@ class SttService {
     }
   }
 
-  void _onSpeechResult(SpeechRecognitionResult result) {
+  void _onSpeechResult(SpeechRecognitionResult result, int gen) {
+    // Drop results from a superseded session. This is the real guard against
+    // the old side's final arriving after a switch: without it, that final is
+    // delivered to the current _onResult and commits to the wrong side.
+    if (gen != _sessionGen) return;
     final text = result.recognizedWords;
     if (text.isNotEmpty && text != _currentSessionText) {
       _currentSessionText = text;
@@ -155,10 +173,11 @@ class SttService {
   Future<void> stopListening() async {
     _shouldListen = false;
     _currentLocale = null;
-    // Detach before stopping: _speech.stop() can fire one last final result as
-    // it tears down, and we must not deliver that straggler to whatever session
-    // comes next. The consumer also guards by epoch, but cutting it off here is
-    // the clean break.
+    // Advance the generation so any result the dying session still emits
+    // (notably the final from _speech.stop()) is dropped by _onSpeechResult —
+    // even if it arrives after the next session has already started and
+    // reassigned _onResult. Detaching _onResult too is belt-and-suspenders.
+    _sessionGen++;
     _onResult = null;
     _onSuspended = null;
     _silenceTimer?.cancel();
