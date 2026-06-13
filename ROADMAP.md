@@ -106,7 +106,7 @@ M0 → M1 → M2 → M3 → M4 is the spine. After M4 the product functions end-
 
 ### M10 — Shipping prep (in progress)
 
-As of 2026-06-13, both stores are in review for the same release (version name 1.1.0): Android closed testing at build 5, iOS App Store at build 6. Build numbers diverged because iOS needed a fresh build after an iPhone-only rebuild — see the cross-store build-number note below.
+As of 2026-06-13, both stores are aligned on the same release: **1.1.0 build 7**, identical code on both, including the real mid-speech-switch fix (commit `7cfd7e9`). Earlier builds 5 (Android) and 6 (iOS) shipped an *incomplete* version of that fix — confirmed live that the bug still reproduced — so build 7 supersedes both. The fix moved the guard into `SttService` (per-session generation; stale results dropped before reaching the handler). Still pending one real-device confirmation once build 7 rolls out. See the cross-store build-number note below.
 
 Android (Play Store):
 - [x] App icon (1024×1024 master at `assets/icon/icon.png`, generated for all densities + Android 8+ adaptive icon via `flutter_launcher_icons`)
@@ -117,17 +117,17 @@ Android (Play Store):
 - [x] Play Console: package name `com.carefulcamel61097.talkflip`, content rating, target audience, data safety form, contact details, store category (Travel & Local), tags (Travel and local, Tools, Productivity, Communication)
 - [x] Main store listing: title, short + full description, 512×512 icon, 1024×500 feature graphic, 4 screenshots (chat, picker, settings, about)
 - [x] Internal testing release shipped (versionCode 2), translation verified working
-- [x] Closed testing: first release sent for Play review 2026-05-20; feature build 1.1.0+5 (Thai + 16 more languages, searchable picker, mid-speech switch fix, tap-chip mic-off, free-tier hard stop) uploaded and sent for review 2026-06-13
+- [x] Closed testing: first release sent for Play review 2026-05-20; feature build 1.1.0+5 (Thai + 16 more languages, searchable picker, tap-chip mic-off, free-tier hard stop) sent 2026-06-13. Build 5's mid-speech-switch fix was incomplete (bug still reproduced live) → superseded by build 7 with the real `SttService`-level fix
 - [ ] Apply for production access after the 14-day-12-tester gauntlet completes
 
 iOS (App Store):
-- [x] Submitted 2026-06-13: version 1.1.0 (build 6), iPhone-only, **Waiting for Review**. App Store Connect app id `6779847058`; bundle id `com.carefulcamel61097.talkflip`
+- [x] Submitted 2026-06-13: version 1.1.0 (**build 7**, with the `SttService` switch fix), iPhone-only, in review. Build 6 superseded. App Store Connect app id `6779847058`; bundle id `com.carefulcamel61097.talkflip`
 - [x] Signing: MANUAL App Store distribution (profile "ConvoGo App Store", team `W44P8NT5C6`) — automatic signing fails because the team has no registered devices; mirrors the sibling sportsport-flutter app
 - [x] Config: `TARGETED_DEVICE_FAMILY=1` (iPhone-only), `DEVELOPMENT_TEAM` set, `ITSAppUsesNonExemptEncryption=false`; mic + speech-recognition usage strings in Info.plist; icons/splash from the shared `assets/icon/icon.png` master
 - [x] App Store metadata: Travel category, 4+ age rating, App Privacy = "Data Not Collected" (translated text services the request only and isn't retained; the Worker stores only an anonymous monthly character count). Support + privacy URLs served from `docs/` GitHub Pages
 - Release process (Mac): `flutter build ipa --export-options-plist <plist>` (app-store, manual, profile "ConvoGo App Store") → `xcrun altool --upload-app --type ios -f build/ios/ipa/ConvoGo.ipa --apiKey <KEYID> --apiIssuer <ISSUER>`. App Store Connect API key (.p8) lives on the Mac in `~/.appstoreconnect/private_keys/`
 
-**Cross-store build numbers:** Play is on versionCode 5, App Store on build 6; both are version name 1.1.0. Each store rejects a *duplicate* build number, and the two are now offset — so the safe rule is to **bump the build number for every upload to either store** (the repo is at +6; next upload anywhere → +7, and keep climbing). iOS must stay iPhone-only.
+**Cross-store build numbers:** both stores are now on build 7 (version name 1.1.0). Each store rejects a *duplicate* build number, so the safe rule is to **bump the build number for every upload to either store** — next upload anywhere → +8, and keep climbing. iOS must stay iPhone-only.
 
 ## Beyond v1.0 — post-launch ideas
 
