@@ -106,7 +106,7 @@ M0 → M1 → M2 → M3 → M4 is the spine. After M4 the product functions end-
 
 ### M10 — Shipping prep (in progress)
 
-Android side is in motion; iOS deferred (will pick up on the Mac when ready).
+As of 2026-06-13, both stores are in review for the same release (version name 1.1.0): Android closed testing at build 5, iOS App Store at build 6. Build numbers diverged because iOS needed a fresh build after an iPhone-only rebuild — see the cross-store build-number note below.
 
 Android (Play Store):
 - [x] App icon (1024×1024 master at `assets/icon/icon.png`, generated for all densities + Android 8+ adaptive icon via `flutter_launcher_icons`)
@@ -117,12 +117,17 @@ Android (Play Store):
 - [x] Play Console: package name `com.carefulcamel61097.talkflip`, content rating, target audience, data safety form, contact details, store category (Travel & Local), tags (Travel and local, Tools, Productivity, Communication)
 - [x] Main store listing: title, short + full description, 512×512 icon, 1024×500 feature graphic, 4 screenshots (chat, picker, settings, about)
 - [x] Internal testing release shipped (versionCode 2), translation verified working
-- [ ] Closed testing release: sent for Play review on 2026-05-20 (the 14-day-12-tester gauntlet must complete before production access unlocks)
-- [ ] Post-internal UX additions (tap-anywhere-in-chat to switch sides, active-side dot above chip, TalkFlip→ConvoGo typo fix in mic dialog + iOS Info.plist) are committed but **not yet built into a v3 AAB** — will bundle with tester feedback when v3 ships
-- [ ] Apply for production access after the 14-day gauntlet completes
+- [x] Closed testing: first release sent for Play review 2026-05-20; feature build 1.1.0+5 (Thai + 16 more languages, searchable picker, mid-speech switch fix, tap-chip mic-off, free-tier hard stop) uploaded and sent for review 2026-06-13
+- [ ] Apply for production access after the 14-day-12-tester gauntlet completes
 
 iOS (App Store):
-- [ ] All work deferred to the Mac. App icon / splash assets generate from the same `assets/icon/icon.png` master via the same tooling. iOS bundle metadata (`CFBundleDisplayName`, `CFBundleName`) already updated to ConvoGo. `NSMicrophoneUsageDescription` and `NSSpeechRecognitionUsageDescription` already in Info.plist.
+- [x] Submitted 2026-06-13: version 1.1.0 (build 6), iPhone-only, **Waiting for Review**. App Store Connect app id `6779847058`; bundle id `com.carefulcamel61097.talkflip`
+- [x] Signing: MANUAL App Store distribution (profile "ConvoGo App Store", team `W44P8NT5C6`) — automatic signing fails because the team has no registered devices; mirrors the sibling sportsport-flutter app
+- [x] Config: `TARGETED_DEVICE_FAMILY=1` (iPhone-only), `DEVELOPMENT_TEAM` set, `ITSAppUsesNonExemptEncryption=false`; mic + speech-recognition usage strings in Info.plist; icons/splash from the shared `assets/icon/icon.png` master
+- [x] App Store metadata: Travel category, 4+ age rating, App Privacy = "Data Not Collected" (translated text services the request only and isn't retained; the Worker stores only an anonymous monthly character count). Support + privacy URLs served from `docs/` GitHub Pages
+- Release process (Mac): `flutter build ipa --export-options-plist <plist>` (app-store, manual, profile "ConvoGo App Store") → `xcrun altool --upload-app --type ios -f build/ios/ipa/ConvoGo.ipa --apiKey <KEYID> --apiIssuer <ISSUER>`. App Store Connect API key (.p8) lives on the Mac in `~/.appstoreconnect/private_keys/`
+
+**Cross-store build numbers:** Play is on versionCode 5, App Store on build 6; both are version name 1.1.0. Each store rejects a *duplicate* build number, and the two are now offset — so the safe rule is to **bump the build number for every upload to either store** (the repo is at +6; next upload anywhere → +7, and keep climbing). iOS must stay iPhone-only.
 
 ## Beyond v1.0 — post-launch ideas
 
