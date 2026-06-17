@@ -59,27 +59,35 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
 
   Future<bool> _ensureMicPermission() async {
     if (ConversationPage.bypassMicPermissionInTests) return true;
+    PermissionStatus status;
     try {
-      final status = await Permission.microphone.status;
-      if (status.isGranted) return true;
-      if (status.isDenied) {
-        final newStatus = await Permission.microphone.request();
-        if (newStatus.isGranted) return true;
+      status = await Permission.microphone.status;
+      // Always give the OS a chance to show its native permission prompt first.
+      // request() surfaces the system dialog when access hasn't been decided
+      // yet, and is a no-op returning the current status once it has. We must
+      // never send the user to Settings before this prompt has had its chance.
+      if (!status.isGranted) {
+        status = await Permission.microphone.request();
       }
     } catch (_) {
       // permission_handler not available (e.g., widget tests) — assume granted.
       return true;
     }
 
+    if (status.isGranted) return true;
+
+    // Only now — after the OS prompt has been shown and the user still hasn't
+    // granted access (they previously declined, so iOS won't prompt again) — do
+    // we offer a path to Settings.
     if (!mounted) return false;
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Microphone access needed'),
         content: const Text(
-          "Microphone access is blocked, so ConvoGo can't transcribe speech. "
-          "Open your device settings to enable it, then come back and tap a "
-          "language chip to start.",
+          "Microphone access is off, so ConvoGo can't transcribe speech. "
+          "You can turn it on in Settings, then come back and tap a language "
+          "chip to start.",
         ),
         actions: [
           TextButton(
