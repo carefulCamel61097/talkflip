@@ -106,7 +106,9 @@ M0 → M1 → M2 → M3 → M4 is the spine. After M4 the product functions end-
 
 ### M10 — Shipping prep (in progress)
 
-As of 2026-06-13, both stores are aligned on the same release: **1.1.0 build 7**, identical code on both, including the real mid-speech-switch fix (commit `7cfd7e9`). Earlier builds 5 (Android) and 6 (iOS) shipped an *incomplete* version of that fix — confirmed live that the bug still reproduced — so build 7 supersedes both. The fix moved the guard into `SttService` (per-session generation; stale results dropped before reaching the handler). Still pending one real-device confirmation once build 7 rolls out. See the cross-store build-number note below.
+Release 1.1.0 carries the real mid-speech-switch fix (commit `7cfd7e9`; an `SttService` per-session generation guard that drops stale results — earlier builds 5/6 had an incomplete version that still reproduced live) plus a microphone-permission-flow fix (see below). Current store state:
+- **Android:** build 7 promoted to **production (under review)**; build 8 in **closed testing** (includes the `_ensureMicPermission` restructure).
+- **iOS:** build 9 in review — see the permission saga below.
 
 Android (Play Store):
 - [x] App icon (1024×1024 master at `assets/icon/icon.png`, generated for all densities + Android 8+ adaptive icon via `flutter_launcher_icons`)
@@ -121,13 +123,16 @@ Android (Play Store):
 - [ ] Apply for production access after the 14-day-12-tester gauntlet completes
 
 iOS (App Store):
-- [x] Submitted 2026-06-13: version 1.1.0 (**build 7**, with the `SttService` switch fix), iPhone-only, in review. Build 6 superseded. App Store Connect app id `6779847058`; bundle id `com.carefulcamel61097.talkflip`
+- [x] In review: version 1.1.0 (**build 9**), iPhone-only. App Store Connect app id `6779847058`; bundle id `com.carefulcamel61097.talkflip`
+- **Microphone permission saga (builds 7→9):** Apple rejected builds 7 and 8 under guideline 5.1.1(iv) + 2.1(a) — the app reached its "Open Settings" dialog *without the native mic prompt ever appearing*. Root cause: `permission_handler` gates each iOS permission behind a **compile-time macro**; the Podfile didn't set `PERMISSION_MICROPHONE=1`, so `Permission.microphone.request()` returned "denied" with no prompt. Fixed in build 9: `ios/Podfile` `post_install` now sets `GCC_PREPROCESSOR_DEFINITIONS` with `PERMISSION_MICROPHONE=1` and `PERMISSION_SPEECH_RECOGNIZER=1` (Podfile is now committed so the macro persists), plus `_ensureMicPermission` always calls `request()` before any Settings dialog. Verified on a clean install — native prompt now appears first. (Android is unaffected by the macro; its permission flow already worked and also got the `_ensureMicPermission` improvement in build 8.)
 - [x] Signing: MANUAL App Store distribution (profile "ConvoGo App Store", team `W44P8NT5C6`) — automatic signing fails because the team has no registered devices; mirrors the sibling sportsport-flutter app
 - [x] Config: `TARGETED_DEVICE_FAMILY=1` (iPhone-only), `DEVELOPMENT_TEAM` set, `ITSAppUsesNonExemptEncryption=false`; mic + speech-recognition usage strings in Info.plist; icons/splash from the shared `assets/icon/icon.png` master
 - [x] App Store metadata: Travel category, 4+ age rating, App Privacy = "Data Not Collected" (translated text services the request only and isn't retained; the Worker stores only an anonymous monthly character count). Support + privacy URLs served from `docs/` GitHub Pages
 - Release process (Mac): `flutter build ipa --export-options-plist <plist>` (app-store, manual, profile "ConvoGo App Store") → `xcrun altool --upload-app --type ios -f build/ios/ipa/ConvoGo.ipa --apiKey <KEYID> --apiIssuer <ISSUER>`. App Store Connect API key (.p8) lives on the Mac in `~/.appstoreconnect/private_keys/`
 
-**Cross-store build numbers:** both stores are now on build 7 (version name 1.1.0). Each store rejects a *duplicate* build number, so the safe rule is to **bump the build number for every upload to either store** — next upload anywhere → +8, and keep climbing. iOS must stay iPhone-only.
+**Cross-store build numbers:** all version name 1.1.0. Android: production build 7, closed-testing build 8. iOS: build 9 (builds 7, 8 rejected over the permission flow). The repo/pubspec is at +9. Each store rejects a *duplicate* build number, so the rule stays: **bump the build number for every upload to either store** — next upload anywhere → +10, and keep climbing. iOS must stay iPhone-only.
+
+**Build-machine rule:** Android release AABs must be built on **Windows** (the upload keystore + gitignored `android/key.properties` live there; a Mac-built Android release falls back to the debug key and Play rejects it for wrong signing). iOS is built on the **Mac**. See [convogo-dev-setup] in memory.
 
 ## Beyond v1.0 — post-launch ideas
 
