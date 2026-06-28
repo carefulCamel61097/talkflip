@@ -104,11 +104,12 @@ M0 → M1 → M2 → M3 → M4 is the spine. After M4 the product functions end-
 
 **Demo:** denying mic permission produces a clear dialog with a path to system settings; granting it from settings restores normal operation. App name ConvoGo throughout.
 
-### M10 — Shipping prep (in progress)
+### M10 — Shipping prep (Android shipped; iOS in review)
 
-Release 1.1.0 carries the real mid-speech-switch fix (commit `7cfd7e9`; an `SttService` per-session generation guard that drops stale results — earlier builds 5/6 had an incomplete version that still reproduced live) plus a microphone-permission-flow fix (see below). Current store state:
-- **Android:** build 7 promoted to **production (under review)**; build 8 in **closed testing** (includes the `_ensureMicPermission` restructure).
-- **iOS:** build 9 in review — see the permission saga below.
+Release 1.1.0 carries the real mid-speech-switch fix (commit `7cfd7e9`; an `SttService` per-session generation guard that drops stale results — earlier builds 5/6 had an incomplete version that still reproduced live) plus a microphone-permission-flow fix (see below). **Current store state (as of 2026-06-28):**
+- **Android: LIVE in production** — build 8 (1.1.0), full roll-out on Google Play since 2026-06-19. Production access was granted after the 14-day / 12-tester gauntlet. Build 8 = the real switch fix (`7cfd7e9`) + the `_ensureMicPermission` restructure. Build 7 (the earlier production candidate) was superseded; build 8 went straight to production. **No Android build 9 needed** — build 9 differs from 8 only by an iOS-only Podfile macro, functionally identical on Android.
+- **iOS:** build 9 in App Store review (the `permission_handler` macro fix — see saga below). Not yet released to the App Store as of this writing.
+- **Note for the user's own Android device:** to see production build 8 in the Play Store, leave the internal/closed test programs (opt-in links), uninstall, reinstall — enrolled testers are served the test build over production.
 
 Android (Play Store):
 - [x] App icon (1024×1024 master at `assets/icon/icon.png`, generated for all densities + Android 8+ adaptive icon via `flutter_launcher_icons`)
@@ -120,7 +121,7 @@ Android (Play Store):
 - [x] Main store listing: title, short + full description, 512×512 icon, 1024×500 feature graphic, 4 screenshots (chat, picker, settings, about)
 - [x] Internal testing release shipped (versionCode 2), translation verified working
 - [x] Closed testing: first release sent for Play review 2026-05-20; feature build 1.1.0+5 (Thai + 16 more languages, searchable picker, tap-chip mic-off, free-tier hard stop) sent 2026-06-13. Build 5's mid-speech-switch fix was incomplete (bug still reproduced live) → superseded by build 7 with the real `SttService`-level fix
-- [ ] Apply for production access after the 14-day-12-tester gauntlet completes
+- [x] Applied for and **granted production access** after the 14-day / 12-tester gauntlet; build 8 promoted to production (full roll-out, live on Google Play 2026-06-19)
 
 iOS (App Store):
 - [x] In review: version 1.1.0 (**build 9**), iPhone-only. App Store Connect app id `6779847058`; bundle id `com.carefulcamel61097.talkflip`
@@ -130,7 +131,7 @@ iOS (App Store):
 - [x] App Store metadata: Travel category, 4+ age rating, App Privacy = "Data Not Collected" (translated text services the request only and isn't retained; the Worker stores only an anonymous monthly character count). Support + privacy URLs served from `docs/` GitHub Pages
 - Release process (Mac): `flutter build ipa --export-options-plist <plist>` (app-store, manual, profile "ConvoGo App Store") → `xcrun altool --upload-app --type ios -f build/ios/ipa/ConvoGo.ipa --apiKey <KEYID> --apiIssuer <ISSUER>`. App Store Connect API key (.p8) lives on the Mac in `~/.appstoreconnect/private_keys/`
 
-**Cross-store build numbers:** all version name 1.1.0. Android: production build 7, closed-testing build 8. iOS: build 9 (builds 7, 8 rejected over the permission flow). The repo/pubspec is at +9. Each store rejects a *duplicate* build number, so the rule stays: **bump the build number for every upload to either store** — next upload anywhere → +10, and keep climbing. iOS must stay iPhone-only.
+**Cross-store build numbers:** all version name 1.1.0. Android: **production build 8 (live)**. iOS: build 9 in review (builds 7, 8 rejected over the permission flow). The repo/pubspec is at +9. Each store rejects a *duplicate* build number, so the rule stays: **bump the build number for every upload to either store** — next upload anywhere → +10, and keep climbing. iOS must stay iPhone-only.
 
 **Build-machine rule:** Android release AABs must be built on **Windows** (the upload keystore + gitignored `android/key.properties` live there; a Mac-built Android release falls back to the debug key and Play rejects it for wrong signing). iOS is built on the **Mac**. See [convogo-dev-setup] in memory.
 
@@ -151,7 +152,38 @@ Captured here so they don't get lost. None are committed; each will need a desig
 
 **Future — device-driven list (Option B):** instead of a static list, build the picker at runtime from the device's *actual* STT locales (`SpeechToText.locales()`) ∩ Google Translate. Self-curating and honest — each phone only shows what it can really transcribe — and it makes the iOS-vs-Android coverage gap (e.g. Albanian) disappear automatically. Deferred because the per-device-varying list needs careful UX and more language metadata, but it's the elegant long-term answer.
 
-**Open question:** for languages where `speech_to_text` quality is poor, fall back to cloud STT (Whisper via a Worker endpoint, or Google Cloud Speech). This is noted in CLAUDE.md as the per-language STT fallback open question.
+**Open question:** for languages where `speech_to_text` quality is poor, fall back to cloud STT. Now specced in detail below — see "Language-specific STT (cloud fallback)". Still noted in CLAUDE.md as the per-language STT fallback open question.
+
+### Language-specific STT (cloud fallback)
+The native on-device recognizers (`SFSpeechRecognizer` on iOS, `SpeechRecognizer` on Android) vary wildly in quality by language. Two distinct failure modes, which look identical from the outside:
+1. **Not available on the device** — e.g. a Thai speaker's phone with no Thai recognition pack catches *nothing*. Fixable by the user/OS; we just need to detect and explain it.
+2. **Present but weak** — the model exists but mis-hears, especially with accents or background noise. Only a better model fixes this.
+
+The plan routes weak-language audio to a cloud STT instead of the native engine, keeping native (free, instant, live-streaming) for everything that works well.
+
+**Phase 1 — triage, not a quality fix (cheap, ship first).**
+- On activating a side, check the chosen locale against `SpeechToText.locales()`. If absent → show a real hint ("Thai speech recognition isn't installed on this phone — enable it in system settings") instead of silent failure. Handles failure mode #1.
+- Add a **static per-language quality tier** (`high` / `medium` / `low`) to the `Language` table, estimated from Whisper's *published* per-language WER (FLEURS / Common Voice benchmarks) — a rough proxy for how much good training audio each language likely had. No runtime measurement; it's an estimate. This tier drives the default engine choice (low → cloud) and lets us point cloud effort only where it's genuinely needed.
+- Phase 1 explicitly does **not** fix accuracy — it only rules out the "not available" cause so we know which languages truly need Phase 2.
+
+**Phase 2 — the actual quality fix (cloud STT).**
+- Add an engine selector to the `Language` table (`native` vs `cloud`, via a `cloudStt: true` flag — see freemium note below). The conversation/STT layer picks the engine from the active side's language.
+- **Cloud path:** capture raw audio (`record` package) → POST the clip to a new Worker endpoint → return text. Because we have raw audio and *no* STT events, we **detect end-of-turn ourselves** from mic amplitude (silence detection) — the batch completes at the *same moment* a bubble commits today (end-of-turn silence, side-switch, or chip-off), but we own the silence timer instead of borrowing the native engine's `isFinal`.
+- **UX trade (Tension 1):** the cloud path is *batch*, not streaming, so cloud-flagged languages lose the live word-by-word draft bubble — it becomes record → "transcribing…" → text. Accepted, because for a language that currently catches nothing, "~1.5–3s late" is strictly better. Native languages keep their instant live bubble untouched.
+
+**Provider options (Tension 2) — latency vs cost vs streaming:**
+| Provider | Free? | Latency (short clip) | Streaming (live partials)? |
+|---|---|---|---|
+| **Cloudflare Workers AI** Whisper (`whisper-large-v3-turbo`) | ✅ ~10k Neurons/day | ~1–3s | ❌ batch |
+| OpenAI Whisper (`whisper-1`) | ❌ $0.006/min | ~1–2s (≈ same — latency is model+clip-length bound, not host) | ❌ batch |
+| Groq (hosted Whisper turbo) | ❌ paid | often sub-second (fastest) | ❌ batch |
+| Deepgram / AssemblyAI | ❌ paid | low | ✅ restores the live draft bubble |
+
+**Decision: start with Cloudflare Workers AI Whisper** — we already run the Worker, it has a free daily tier, the API key stays server-side, and it fits the "stay free" constraint. Paying buys accuracy parity (OpenAI) or speed (Groq) or live streaming (Deepgram), none of which is worth breaking "free" for the first cut. This maps cleanly onto the freemium idea: free native languages, paid cloud languages.
+
+**Freemium boundary (write-down of "Worker first, freemium later"):** the `cloudStt` flag does double duty — it's both the engine selector *and* the eventual paywall line. Native (on-device, free to us) languages stay free; cloud-STT languages (which cost us Neurons/credits) become the premium tier later. So the architecture we build now for quality already draws the monetisation boundary, no rework. See Monetisation below.
+
+**Open questions:** which languages get flagged `cloud` (driven by Phase 1's tier + real tester feedback, e.g. Thai); whether to ever fake streaming by chunking Whisper (deferred — fiddly, burns far more Neurons); whether a noisy environment alone (not language) should trigger cloud.
 
 ### Romanization of non-Latin scripts
 Optional Settings toggle (off by default) to show Latin-alphabet transliteration alongside the translation for scripts like Thai, Japanese, Korean, Chinese, Russian, Arabic, Hindi (e.g. สวัสดี → *sawatdi*). Serves "read, don't listen" (a traveler who can't read the script can't use the output) and doubles as a language-learning aid.
@@ -168,6 +200,7 @@ ConvoGo currently has no revenue model. Translation costs accrue on the free tie
 **Plausible models, in order of how well they fit the product:**
 1. **Per-device monthly free quota → optional unlock.** Most natural for ConvoGo. Track usage on the device (or via Worker counter keyed by device ID), show a soft prompt once a user hits, say, 50k chars in a month, offering a one-time or monthly unlock. Travellers using it for a one-off trip never see the prompt; heavy users self-select into paying.
 2. **One-time paid unlock for "everything."** Single in-app purchase that removes any limits. Cleaner UX (no recurring billing), familiar pattern for travel apps.
+2b. **Free native languages, paid cloud-STT languages.** Falls straight out of the "Language-specific STT (cloud fallback)" architecture above: on-device STT languages (free to us) stay free; languages that need cloud STT (which costs us Neurons/credits) become the premium tier. The `cloudStt` flag *is* the paywall line, so no extra plumbing. Most natural fit alongside model 1 — quota for free languages, unlock for the cloud ones.
 3. **"Pay what you want" / tip jar.** Friction-free but unreliable revenue. Worth considering as a low-effort addition alongside another model.
 4. **Ads.** Rejected. Conflicts with "smooth and fast > feature-rich" and the no-tracking privacy story.
 
