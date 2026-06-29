@@ -233,10 +233,9 @@ class SttService {
   Future<void> stopListening() async {
     _shouldListen = false;
     _currentLocale = null;
-    // Advance the generation so any result the dying session still emits
-    // (notably the final from _speech.stop()) is dropped by _onSpeechResult —
-    // even if it arrives after the next session has already started and
-    // reassigned _onResult. Detaching _onResult too is belt-and-suspenders.
+    // Advance the generation so any stray partial the dying session still
+    // emits is dropped by _onSpeechResult. Detaching _onResult is a further
+    // belt-and-suspenders.
     _sessionGen++;
     _onResult = null;
     _onSuspended = null;
@@ -245,9 +244,20 @@ class SttService {
     _currentSessionText = '';
     if (_speech.isListening) {
       try {
-        await _speech.stop();
+        // cancel(), NOT stop(): callers (activate/deactivate) have already
+        // captured and committed the in-flight draft to the correct side, so
+        // we don't want the engine's trailing final result — and it's actively
+        // harmful. stop() asks Android to deliver that final, which arrives
+        // *after* the next session's listen() has replaced the plugin's single
+        // result callback. The late final then rides the NEW session's
+        // generation and epoch (both guards capture their value at listen()
+        // time, but the plugin routes the straggler to the current callback),
+        // sailing past both guards and committing the old side's words —
+        // verbatim — onto the new side. cancel() discards that final at the
+        // source, so it can never be misattributed.
+        await _speech.cancel();
       } catch (e) {
-        if (kDebugMode) debugPrint('STT stop failed: $e');
+        if (kDebugMode) debugPrint('STT cancel failed: $e');
       }
     }
   }
