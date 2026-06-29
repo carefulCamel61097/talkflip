@@ -11,6 +11,7 @@ import 'package:talkflip/main.dart';
 import 'package:talkflip/features/conversation/conversation_page.dart';
 import 'package:talkflip/features/conversation/draft_bubble.dart';
 import 'package:talkflip/features/conversation/language_picker_page.dart';
+import 'package:talkflip/features/conversation/stt_engine.dart';
 import 'package:talkflip/features/conversation/translation_service.dart';
 import 'package:talkflip/features/settings/settings_page.dart';
 
@@ -27,10 +28,36 @@ class _StubTranslationService extends TranslationService {
   }
 }
 
+/// A no-op [SttEngine] for widget tests. The real engines reach for the network
+/// (cloud WebSocket) and the native speech platform channel, neither of which
+/// exists under `flutter test` — so without this the activation tests race a
+/// real connect attempt and flake. The fake just records that it was asked to
+/// listen; the UI logic under test (activate → draft shows, deactivate → draft
+/// hides) depends only on the conversation state, not on any recogniser output.
+class _FakeSttEngine implements SttEngine {
+  @override
+  Future<bool> isLocaleAvailable(String locale) async => true;
+
+  @override
+  Future<void> startListening({
+    required String locale,
+    required void Function(String text, bool isFinal) onResult,
+    required void Function() onSuspended,
+    required void Function() onError,
+  }) async {}
+
+  @override
+  Future<void> stopListening() async {}
+
+  @override
+  void dispose() {}
+}
+
 Widget _app() {
   return ProviderScope(
     overrides: [
       translationServiceProvider.overrideWith((ref) => _StubTranslationService()),
+      sttEngineProvider.overrideWithValue(_FakeSttEngine()),
     ],
     child: const ConvoGoApp(),
   );

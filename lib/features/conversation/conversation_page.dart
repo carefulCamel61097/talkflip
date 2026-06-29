@@ -11,6 +11,7 @@ import 'conversation_state.dart';
 import 'draft_bubble.dart';
 import 'language_pair.dart';
 import 'message_bubble.dart';
+import 'stt_engine.dart';
 
 class ConversationPage extends ConsumerStatefulWidget {
   const ConversationPage({super.key});
@@ -270,6 +271,10 @@ class _TopBar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isOnline = ref.watch(connectivityProvider).value ?? true;
+    // Only meaningful while online: when offline the offline dot already says
+    // "degraded", so the two indicators never show at once.
+    final onFallbackStt =
+        isOnline && ref.watch(sttModeProvider) == SttMode.fallback;
     return SizedBox(
       height: 48,
       child: Stack(
@@ -295,6 +300,12 @@ class _TopBar extends ConsumerWidget {
               right: 16,
               top: 16,
               child: _OfflineDot(),
+            )
+          else if (onFallbackStt)
+            const Positioned(
+              right: 16,
+              top: 16,
+              child: _FallbackSttDot(),
             ),
         ],
       ),
@@ -315,6 +326,31 @@ class _OfflineDot extends StatelessWidget {
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: Color(0xFFB0B0B0),
+            shape: BoxShape.circle,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Shown (in place of the offline dot) when the cloud recogniser is unreachable
+/// and we've fallen back to the on-device engine. Same understated dot as the
+/// offline indicator but a muted amber, signalling "working, just degraded" —
+/// not an alarm. Tapping nothing; the tooltip explains it on long-press/hover.
+class _FallbackSttDot extends StatelessWidget {
+  const _FallbackSttDot();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Tooltip(
+      message: 'Using basic speech recognition',
+      child: SizedBox(
+        width: 10,
+        height: 10,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: Color(0xFFD9A05B),
             shape: BoxShape.circle,
           ),
         ),

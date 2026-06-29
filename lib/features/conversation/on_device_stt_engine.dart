@@ -135,9 +135,16 @@ class OnDeviceSttEngine implements SttEngine {
     required String locale,
     required void Function(String text, bool isFinal) onResult,
     required void Function() onSuspended,
+    required void Function() onError,
   }) async {
     final ok = await _ensureInitialized();
-    if (!ok) return;
+    if (!ok) {
+      // The recogniser couldn't even start (no engine, denied, init threw).
+      // Surface it as a failure so a wrapper can react, instead of leaving the
+      // caller waiting on a session that will never produce anything.
+      onError();
+      return;
+    }
     // New session generation: any in-flight callback from a prior session is
     // now stale and will be dropped by _onSpeechResult's generation check.
     _sessionGen++;

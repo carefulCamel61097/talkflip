@@ -20,6 +20,11 @@ import 'stt_engine.dart';
 /// time, so [_finalized] stitches them and the sentence keeps its earlier words.
 class CloudSttEngine implements SttEngine {
   static const _suspendThreshold = Duration(seconds: 60);
+  // Hard ceiling on how long the draft may stream without committing. Overrides
+  // both of Deepgram's own end-of-speech signals (acoustic `speech_final` and
+  // word-gap `UtteranceEnd`), neither of which is guaranteed to fire — so the
+  // bubble can never hang. Mirrors the on-device engine's silence threshold.
+  static const _silenceThreshold = Duration(seconds: 3);
   static const _model = 'nova-3';
 
   final MicAudioSource _mic = MicAudioSource();
@@ -28,9 +33,11 @@ class CloudSttEngine implements SttEngine {
   StreamSubscription<dynamic>? _wsSub;
   StreamSubscription<Uint8List>? _micSub;
   Timer? _suspendTimer;
+  Timer? _silenceTimer;
 
   void Function(String text, bool isFinal)? _onResult;
   void Function()? _onSuspended;
+  void Function()? _onError;
 
   /// True between [startListening] and [stopListening]. Gates every async
   /// callback so a straggler from a torn-down session can't reach the app — the
@@ -40,6 +47,11 @@ class CloudSttEngine implements SttEngine {
 
   /// Finalized segment text accumulated within the current turn (see class doc).
   String _finalized = '';
+
+  /// The most recent text shown in the draft bubble (stitched finalized text
+  /// plus any trailing interim words). The silence ceiling commits exactly this
+  /// — what the user is looking at — so trailing interim words aren't lost.
+  String _lastDraft = '';
 
   @override
   Future<bool> isLocaleAvailable(String locale) async {
@@ -55,12 +67,15 @@ class CloudSttEngine implements SttEngine {
     required String locale,
     required void Function(String text, bool isFinal) onResult,
     required void Function() onSuspended,
+    required void Function() onError,
   }) async {
     await stopListening();
 
     _onResult = onResult;
     _onSuspended = onSuspended;
+    _onError = onError;
     _finalized = '';
+    _lastDraft = '';
     _listening = true;
 
     final uri = Uri.parse(AppConfig.sttStreamUrl).replace(queryParameters: {
@@ -75,7 +90,7 @@ class CloudSttEngine implements SttEngine {
       await channel.ready;
     } catch (e) {
       if (kDebugMode) debugPrint('CloudSTT: connect failed: $e');
-      final cb = _onSuspended;
+      final cb = _onError;
       await stopListening();
       cb?.call();
       return;
@@ -104,7 +119,7 @@ class CloudSttEngine implements SttEngine {
       });
     } catch (e) {
       if (kDebugMode) debugPrint('CloudSTT: mic start failed: $e');
-      final cb = _onSuspended;
+      final cb = _onError;
       await stopListening();
       cb?.call();
       return;
@@ -121,6 +136,14 @@ class CloudSttEngine implements SttEngine {
     } catch (_) {
       return; // non-JSON / binary frame; ignore
     }
+
+    // Word-gap end-of-speech: fires even when noise keeps `speech_final` from
+    // triggering. Carries no transcript of its own — it just means "they
+    // stopped", so commit whatever we've stitched so far.
+    if (data['type'] == 'UtteranceEnd') {
+      _commitFinalized();
+      return;
+    }
     if (data['type'] != 'Results') return;
 
     final alts = (data['channel'] as Map<String, dynamic>?)?['alternatives'];
@@ -131,7 +154,10 @@ class CloudSttEngine implements SttEngine {
     final speechFinal = data['speech_final'] == true;
 
     if (transcript.isEmpty && !speechFinal) return;
-    if (transcript.isNotEmpty) _resetSuspendTimer();
+    if (transcript.isNotEmpty) {
+      _resetSuspendTimer();
+      _resetSilenceTimer();
+    }
 
     if (isFinal) {
       if (transcript.isNotEmpty) {
@@ -139,26 +165,60 @@ class CloudSttEngine implements SttEngine {
             _finalized.isEmpty ? transcript : '$_finalized $transcript';
       }
       if (speechFinal) {
-        final full = _finalized.trim();
-        _finalized = '';
-        if (full.isNotEmpty) _onResult?.call(full, true); // commit the turn
+        _commitFinalized(); // acoustic end-of-speech: commit the turn
       } else {
         // A segment finalized mid-utterance; show the accumulated draft.
-        _onResult?.call(_finalized.trim(), false);
+        _emitDraft(_finalized);
       }
     } else {
       final draft =
           _finalized.isEmpty ? transcript : '$_finalized $transcript';
-      _onResult?.call(draft.trim(), false);
+      _emitDraft(draft);
     }
+  }
+
+  /// Pushes [text] to the draft bubble and remembers it as [_lastDraft] so the
+  /// silence ceiling can commit the exact text on screen.
+  void _emitDraft(String text) {
+    final draft = text.trim();
+    _lastDraft = draft;
+    _onResult?.call(draft, false);
+  }
+
+  /// Commits the stitched final text and resets for the next utterance. Used by
+  /// both of Deepgram's end-of-speech signals (`speech_final`, `UtteranceEnd`).
+  void _commitFinalized() {
+    _silenceTimer?.cancel();
+    final full = _finalized.trim();
+    _finalized = '';
+    _lastDraft = '';
+    if (full.isNotEmpty) _onResult?.call(full, true);
+  }
+
+  void _resetSilenceTimer() {
+    _silenceTimer?.cancel();
+    _silenceTimer = Timer(_silenceThreshold, _onSilenceTimeout);
+  }
+
+  /// The hard ceiling fired: Deepgram has gone quiet for [_silenceThreshold]
+  /// without ever signalling end-of-speech. Commit the on-screen draft (which
+  /// includes any trailing interim words) so the bubble can't hang. The socket
+  /// stays open, so the speaker can simply continue with a fresh utterance.
+  void _onSilenceTimeout() {
+    _silenceTimer?.cancel();
+    final full = _lastDraft.trim();
+    _finalized = '';
+    _lastDraft = '';
+    if (full.isNotEmpty) _onResult?.call(full, true);
   }
 
   void _handleDisconnect(String reason) {
     if (!_listening) return; // intentional teardown
     if (kDebugMode) debugPrint('CloudSTT: disconnected ($reason)');
-    // Treat an unexpected drop like a suspend: return the UI to neutral rather
-    // than leaving a hot, dead session. Reconnect / offline UX is a later step.
-    final cb = _onSuspended;
+    // An unexpected drop is a failure, not a quiet timeout: signal onError so
+    // the resilient wrapper can fall back to the on-device engine and keep the
+    // turn alive, rather than dumping the user back to neutral mid-sentence.
+    final cb = _onError;
     unawaited(stopListening());
     cb?.call();
   }
@@ -177,9 +237,13 @@ class CloudSttEngine implements SttEngine {
     _listening = false;
     _onResult = null;
     _onSuspended = null;
+    _onError = null;
     _finalized = '';
+    _lastDraft = '';
     _suspendTimer?.cancel();
     _suspendTimer = null;
+    _silenceTimer?.cancel();
+    _silenceTimer = null;
 
     await _micSub?.cancel();
     _micSub = null;

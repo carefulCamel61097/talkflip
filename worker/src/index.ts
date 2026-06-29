@@ -77,6 +77,13 @@ async function handleSttStream(
   // instead of borrowing the native engine's trigger-happy VAD — this is what
   // fixes "the bubble commits while I'm still talking". Tunable in step 6.
   dgUrl.searchParams.set('endpointing', '300');
+  // `endpointing`/`speech_final` is purely acoustic (a voice-activity detector),
+  // so background noise can keep it from ever firing — the bubble then hangs.
+  // `utterance_end_ms` is the timing-based backstop: Deepgram emits an
+  // `UtteranceEnd` message when no new *word* lands for this many ms, regardless
+  // of noise. The client commits on whichever arrives first. Requires
+  // interim_results (set above). 1000ms is Deepgram's minimum.
+  dgUrl.searchParams.set('utterance_end_ms', '1000');
 
   // Connect to Deepgram BEFORE accepting the client, so no early audio frames
   // are lost in the gap. The key stays here, server-side — never in the app.

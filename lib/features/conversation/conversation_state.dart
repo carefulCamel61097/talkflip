@@ -107,6 +107,7 @@ class ConversationNotifier extends Notifier<ConversationState> {
       locale: language.sttLocale,
       onResult: (text, isFinal) => _handleSttResult(epoch, side, text, isFinal),
       onSuspended: _handleSttSuspended,
+      onError: _handleSttError,
     );
   }
 
@@ -140,6 +141,15 @@ class ConversationNotifier extends Notifier<ConversationState> {
   }
 
   void _handleSttSuspended() {
+    state = state.copyWith(activeSide: ActiveSide.neutral, draftText: '');
+  }
+
+  /// The engine failed with no working fallback left (e.g. cloud unreachable
+  /// *and* the on-device recogniser couldn't start). Nothing can transcribe
+  /// this turn, so return to neutral — same resting state as an idle suspend.
+  /// The resilient engine handles the recoverable case (cloud → on-device)
+  /// itself, so by the time this fires there's genuinely nothing to listen with.
+  void _handleSttError() {
     state = state.copyWith(activeSide: ActiveSide.neutral, draftText: '');
   }
 
