@@ -4,8 +4,10 @@ import 'package:flutter/foundation.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
-/// Wrapper around speech_to_text with cross-platform commit behavior and a
-/// long-idle suspend.
+import 'stt_engine.dart';
+
+/// On-device [SttEngine]: wraps the native speech_to_text recognizers with
+/// cross-platform commit behavior and a long-idle suspend.
 ///
 /// Commit strategy: whichever fires first wins —
 /// 1. Platform `isFinal=true` (Android's VAD fires after ~1s pause; iOS rarely
@@ -13,10 +15,10 @@ import 'package:speech_to_text/speech_to_text.dart';
 /// 2. Our [_silenceThreshold] fallback timer (resets on every new partial).
 ///
 /// Suspend strategy: after [_suspendThreshold] of no new speech at all, the
-/// service stops listening entirely and invokes the `onSuspended` callback
+/// engine stops listening entirely and invokes the `onSuspended` callback
 /// so the consumer (ConversationNotifier) can return to neutral. Battery
 /// saver + matches the design that the mic shouldn't sit hot forever.
-class SttService {
+class OnDeviceSttEngine implements SttEngine {
   static const _silenceThreshold = Duration(seconds: 3);
   static const _suspendThreshold = Duration(seconds: 60);
 
@@ -84,6 +86,7 @@ class SttService {
   /// populated yet), this returns true so we never block activation on a check
   /// we couldn't actually perform. A false result means "we are confident this
   /// language's recogniser isn't installed".
+  @override
   Future<bool> isLocaleAvailable(String locale) async {
     // Web's recognizer locale list (Chrome's Web Speech API) is unreliable: it
     // under-reports, omitting languages it can actually recognise. Web is
@@ -127,6 +130,7 @@ class SttService {
     return lang.toLowerCase();
   }
 
+  @override
   Future<void> startListening({
     required String locale,
     required void Function(String text, bool isFinal) onResult,
@@ -230,6 +234,7 @@ class SttService {
     }
   }
 
+  @override
   Future<void> stopListening() async {
     _shouldListen = false;
     _currentLocale = null;
@@ -262,6 +267,7 @@ class SttService {
     }
   }
 
+  @override
   void dispose() {
     _shouldListen = false;
     _currentLocale = null;

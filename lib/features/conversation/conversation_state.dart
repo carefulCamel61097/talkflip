@@ -4,7 +4,7 @@ import '../../core/supported_languages.dart';
 import 'active_side.dart';
 import 'language_pair.dart';
 import 'message.dart';
-import 'stt_service.dart';
+import 'stt_engine.dart';
 import 'translation_service.dart';
 
 class ConversationState {
@@ -38,7 +38,7 @@ class ConversationState {
 }
 
 class ConversationNotifier extends Notifier<ConversationState> {
-  late final SttService _stt;
+  late final SttEngine _stt;
   late final TranslationService _translation;
   int _nextMessageId = 0;
 
@@ -51,9 +51,10 @@ class ConversationNotifier extends Notifier<ConversationState> {
 
   @override
   ConversationState build() {
-    _stt = SttService();
+    // Engine choice (on-device vs cloud) lives in sttEngineProvider, which also
+    // owns the engine's disposal — so we just read the active one here.
+    _stt = ref.read(sttEngineProvider);
     _translation = ref.read(translationServiceProvider);
-    ref.onDispose(_stt.dispose);
     return ConversationState.initial;
   }
 
