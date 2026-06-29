@@ -25,6 +25,12 @@ class SttService {
   bool _shouldListen = false;
   bool _lastWasError = false;
   String? _currentLocale;
+
+  /// Cached lowercase language subtags the device recogniser supports (e.g.
+  /// {"en", "fr", "th"}). Populated lazily on the first availability check and
+  /// reused for the session — see [_installedLanguageSubtags].
+  List<String>? _installedSubtags;
+
   void Function(String text, bool isFinal)? _onResult;
   void Function()? _onSuspended;
 
@@ -65,6 +71,60 @@ class SttService {
         _start();
       }
     }
+  }
+
+  /// Whether the device has a speech-recognition locale matching [locale]'s
+  /// language (e.g. any Thai locale for "th_TH"). Matching is on the language
+  /// subtag, not the region, because what the user installs/enables is the
+  /// language pack — the region variant rarely matters for whether speech is
+  /// recognised at all.
+  ///
+  /// Permissive on uncertainty: if STT can't initialize, the call throws, or
+  /// the platform reports no locales (e.g. Web, or a list that hasn't been
+  /// populated yet), this returns true so we never block activation on a check
+  /// we couldn't actually perform. A false result means "we are confident this
+  /// language's recogniser isn't installed".
+  Future<bool> isLocaleAvailable(String locale) async {
+    // Web's recognizer locale list (Chrome's Web Speech API) is unreliable: it
+    // under-reports, omitting languages it can actually recognise. Web is
+    // dev-only and won't ship, so never gate activation on it — only the
+    // native iOS/Android lists reflect a device's real recogniser support.
+    if (kIsWeb) return true;
+    final subtags = await _installedLanguageSubtags();
+    // Permissive on uncertainty (init failed / threw / empty list): a null or
+    // empty result means we couldn't determine support, so don't block.
+    if (subtags == null || subtags.isEmpty) return true;
+    return subtags.contains(_languageSubtag(locale));
+  }
+
+  /// Language subtags the device recogniser supports, fetched once and cached.
+  ///
+  /// Cached because the installed recogniser languages don't change within a
+  /// session, and because the first availability check happens from the neutral
+  /// state (no live session) — so the one `locales()` platform call never races
+  /// a mid-sentence side-switch. Returns null when support can't be determined.
+  Future<List<String>?> _installedLanguageSubtags() async {
+    if (_installedSubtags != null) return _installedSubtags;
+    final ok = await _ensureInitialized();
+    if (!ok) return null;
+    try {
+      final locales = await _speech.locales();
+      if (locales.isEmpty) return null;
+      _installedSubtags =
+          locales.map((l) => _languageSubtag(l.localeId)).toList(growable: false);
+      return _installedSubtags;
+    } catch (e) {
+      if (kDebugMode) debugPrint('STT locales() check failed: $e');
+      return null;
+    }
+  }
+
+  /// Extracts the lowercase language subtag from a locale id, tolerating both
+  /// "en_US" and "en-US" forms (speech_to_text reports either by platform).
+  static String _languageSubtag(String locale) {
+    final sep = locale.indexOf(RegExp(r'[_-]'));
+    final lang = sep == -1 ? locale : locale.substring(0, sep);
+    return lang.toLowerCase();
   }
 
   Future<void> startListening({

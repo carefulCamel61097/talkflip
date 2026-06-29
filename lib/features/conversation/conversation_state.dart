@@ -65,6 +65,17 @@ class ConversationNotifier extends Notifier<ConversationState> {
     return side == ActiveSide.left ? pair.left : pair.right;
   }
 
+  /// Whether the device can actually recognise speech in [side]'s language.
+  /// Returns true (permissive) when the side has no language yet or when STT
+  /// can't determine availability — see [SttService.isLocaleAvailable]. Callers
+  /// use this to warn the user before activating a side whose recogniser isn't
+  /// installed, rather than activating into a mic that silently catches nothing.
+  Future<bool> isLocaleInstalled(ActiveSide side) async {
+    final language = _languageFor(side);
+    if (language == null) return true;
+    return _stt.isLocaleAvailable(language.sttLocale);
+  }
+
   Future<void> activate(ActiveSide side) async {
     if (side == ActiveSide.neutral) return;
     if (side == state.activeSide) return;

@@ -107,11 +107,42 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
     return false;
   }
 
+  /// Confirms the chosen side's language can actually be recognised on this
+  /// device before we activate. If the recogniser isn't installed, shows a
+  /// hint pointing the user to system settings and returns false, so we don't
+  /// light up a side whose mic would silently catch nothing.
+  Future<bool> _ensureLocaleAvailable(ActiveSide side) async {
+    // Same test bypass as the mic gate: widget tests can't drive the STT
+    // platform channel, so skip the availability probe entirely.
+    if (ConversationPage.bypassMicPermissionInTests) return true;
+
+    final installed =
+        await ref.read(conversationProvider.notifier).isLocaleInstalled(side);
+    if (installed) return true;
+    if (!mounted) return false;
+
+    final pair = ref.read(languagePairProvider).value;
+    final language = side == ActiveSide.left ? pair?.left : pair?.right;
+    final name = language?.displayName ?? 'This language';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          "$name speech recognition isn't installed on this phone — turn it "
+          "on in your system settings, then tap a language to start.",
+        ),
+        duration: const Duration(seconds: 6),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+    return false;
+  }
+
   Future<void> _activateWithPermission(ActiveSide side) async {
     final granted = await _ensureMicPermission();
-    if (granted && mounted) {
-      ref.read(conversationProvider.notifier).activate(side);
-    }
+    if (!granted || !mounted) return;
+    final available = await _ensureLocaleAvailable(side);
+    if (!available || !mounted) return;
+    ref.read(conversationProvider.notifier).activate(side);
   }
 
   /// Tapping a language chip activates its side — unless that side is already
