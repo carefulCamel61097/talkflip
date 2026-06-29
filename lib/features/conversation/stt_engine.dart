@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/config.dart';
+import 'cloud_stt_engine.dart';
 import 'on_device_stt_engine.dart';
 
 /// The speech-to-text engine the rest of the app talks to. Everything
@@ -33,12 +35,12 @@ abstract class SttEngine {
   void dispose();
 }
 
-/// The active STT engine for the app. On-device today; a later milestone will
-/// select a cloud streaming engine here (behind a config flag). Centralising
-/// the choice in one provider keeps the swap a one-line change and lets tests
-/// override the engine.
+/// The active STT engine for the app, chosen by [AppConfig.useCloudStt].
+/// Centralising the choice (and disposal) here keeps the swap a one-line flag
+/// and lets tests override the engine.
 final sttEngineProvider = Provider<SttEngine>((ref) {
-  final engine = OnDeviceSttEngine();
+  final SttEngine engine =
+      AppConfig.useCloudStt ? CloudSttEngine() : OnDeviceSttEngine();
   ref.onDispose(engine.dispose);
   return engine;
 });
