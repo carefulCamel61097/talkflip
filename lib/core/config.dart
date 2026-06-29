@@ -21,4 +21,19 @@ class AppConfig {
   /// device — it requires the Worker deployed with the `/stt-stream` route and
   /// the `DEEPGRAM_API_KEY` secret set. Will become the default once validated.
   static const bool useCloudStt = true;
+
+  /// Shared secret the app presents to the Worker's `/stt-stream` endpoint so a
+  /// stranger who finds the public URL can't burn cloud STT minutes.
+  ///
+  /// This is a deliberately low-value "speed bump", not a real credential: it
+  /// ships inside the app and is therefore extractable, so it only raises the
+  /// bar against casual abuse — the per-device and global monthly minute caps in
+  /// the Worker are the real guard. Override at build time with
+  /// `--dart-define=STT_APP_TOKEN=...`; the committed default keeps local/dev
+  /// builds working without the flag. Rotate by changing this value and the
+  /// Worker's `STT_APP_TOKEN` secret together.
+  static const String sttAppToken = String.fromEnvironment(
+    'STT_APP_TOKEN',
+    defaultValue: '60cfba60cbc07160583a1166b96410af09233ed1497f3f06',
+  );
 }

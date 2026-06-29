@@ -12,6 +12,9 @@
 .swiftpm/
 migrate_working_dir/
 
+# Cloudflare Wrangler local cache/state (not source; may hold account info)
+.wrangler/
+
 # IntelliJ related
 *.iml
 *.ipr

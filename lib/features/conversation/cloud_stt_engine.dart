@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../../core/config.dart';
+import '../../core/device_id.dart';
 import 'mic_audio_source.dart';
 import 'stt_engine.dart';
 
@@ -78,9 +79,18 @@ class CloudSttEngine implements SttEngine {
     _lastDraft = '';
     _listening = true;
 
+    // The device id (anonymous, for the Worker's per-device minute cap) and the
+    // app token (so the public endpoint isn't wide open) ride on the connect
+    // URL. DeviceId.get() is cached after the first call, so this is instant on
+    // every later session.
+    final deviceId = await DeviceId.get();
+    if (!_listening) return; // stopped while fetching the id
+
     final uri = Uri.parse(AppConfig.sttStreamUrl).replace(queryParameters: {
       'lang': _deepgramLang(locale),
       'model': _model,
+      'device': deviceId,
+      'token': AppConfig.sttAppToken,
     });
 
     final WebSocketChannel channel;
