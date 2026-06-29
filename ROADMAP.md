@@ -206,6 +206,8 @@ ConvoGo currently has no revenue model. Translation costs accrue on the free tie
 3. **"Pay what you want" / tip jar.** Friction-free but unreliable revenue. Worth considering as a low-effort addition alongside another model.
 4. **Ads.** Rejected. Conflicts with "smooth and fast > feature-rich" and the no-tracking privacy story.
 
+**Usage transparency before the paywall (UX principle).** A top-up prompt like "500 minutes for $3" is meaningless to a user with no frame of reference for how many minutes *they* actually use. Before (and at) the paywall, show the user their **own past usage in minutes** and a running **"would-have-cost"** figure — i.e. what their usage so far would have cost at the pay rate. This lets them calibrate the offer against their real behaviour ("oh, I've used 40 minutes this month, so a 500-minute pack is months of use") instead of guessing. Reinforces the trust/no-dark-patterns posture: we're showing you what you use and what it costs, not just asking for money. The per-device usage counter the Worker already maintains is the data source. Note billing realities: app-store IAP sells discrete products (subscriptions or consumable minute-packs), not a live per-minute meter — so "metered" pricing is approximated with credit packs, and Apple/Google handle the payment (no credit card touched by us; ~15% cut under ~$1M/yr, 30% above).
+
 **Open questions:** what's the trigger — the 500k Google free-tier cap, $X/month in costs, or earlier (so growth can be funded)? Per-device tracking integrity (people can reinstall). iOS and Android billing differences.
 
 ### Messaging mode (text-only sibling app)
