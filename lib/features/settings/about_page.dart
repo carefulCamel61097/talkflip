@@ -36,11 +36,13 @@ class AboutPage extends StatelessWidget {
             ),
             SizedBox(height: 8),
             Text(
-              "ConvoGo uses your microphone to transcribe what you say. "
-              "Transcribed text is sent to Google Translate, via a thin proxy "
-              "we operate, to be translated into the other language. "
-              "Conversations stay on your device in memory only — they're not "
-              "stored on any server and are cleared when you close the app.",
+              "ConvoGo uses your microphone to transcribe what you say. Your "
+              "speech is streamed to a cloud speech-to-text service to produce "
+              "the transcript, and the transcribed text is sent to Google "
+              "Translate — both via a thin proxy we operate. Audio and text are "
+              "used only to do the translation and aren't stored on any server. "
+              "Conversations stay on your device in memory only — they're "
+              "cleared when you close the app.",
               style: TextStyle(fontSize: 14, height: 1.5),
             ),
           ],

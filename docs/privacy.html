@@ -12,7 +12,7 @@
   <header class="hero">
     <img class="icon" src="icon.png" alt="ConvoGo app icon">
     <h1>Privacy Policy</h1>
-    <p class="meta">Last updated: June 13, 2026</p>
+    <p class="meta">Last updated: June 29, 2026</p>
   </header>
 
   <main class="wrap">
@@ -33,7 +33,7 @@
       <h2>What the app uses, and why</h2>
 
       <h3>Microphone &amp; speech</h3>
-      <p>When you tap a language to speak, the app uses your device's microphone and its built-in speech recognition to turn your speech into text. This transcription is handled by your device's operating system (Apple). Depending on your device and the language, some audio may be processed by Apple to provide recognition, in accordance with Apple's privacy policy. ConvoGo does not record, save, or upload audio.</p>
+      <p>When you tap a language to speak, the app captures audio from your device's microphone and streams it, over an encrypted connection, to our speech service, which forwards it to a third-party speech-to-text provider (Deepgram) that converts your speech to text in real time. The audio is used only to produce that transcript while you are speaking; we do not record, save, or store it, and it is not tied to your name, account, or a device identifier. If the cloud speech service is unavailable, the app falls back to your device's built-in speech recognition (handled by your operating system — Apple on iOS, Google on Android), in which case audio is handled by that platform under its own privacy policy.</p>
 
       <h3>Translation</h3>
       <p>To translate, the app sends the transcribed <em>text</em> (and the two language codes, e.g. "en" and "es") over an encrypted connection to our translation service, which forwards it to the Google Cloud Translation API and returns the translation. These requests are not tied to your name, account, or a device identifier. We do not store the text you translate. Google processes the text to perform the translation under its own terms; see Google's privacy policy.</p>
@@ -58,11 +58,12 @@
 
     <div class="card">
       <h2>Service providers</h2>
-      <p>Delivering translation relies on a few infrastructure providers who may process technical data (such as your IP address) only as needed to route and serve requests:</p>
+      <p>Delivering speech-to-text and translation relies on a few infrastructure providers who may process technical data (such as your IP address) only as needed to route and serve requests:</p>
       <ul class="features">
-        <li><strong>Apple</strong> — operating-system speech recognition.</li>
+        <li><strong>Deepgram</strong> — cloud speech-to-text; transcribes the audio streamed while you speak.</li>
         <li><strong>Google Cloud Translation</strong> — translates the submitted text.</li>
-        <li><strong>Cloudflare</strong> — hosts the lightweight translation proxy.</li>
+        <li><strong>Cloudflare</strong> — hosts the lightweight proxy that routes the audio and text.</li>
+        <li><strong>Apple / Google</strong> — your device's built-in speech recognition, used only as an offline fallback when the cloud service is unavailable.</li>
       </ul>
       <p>Each handles data under its own privacy policy.</p>
     </div>

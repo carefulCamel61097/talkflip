@@ -1,6 +1,6 @@
 # ConvoGo — Privacy Policy
 
-**Effective date:** 20 May 2026
+**Effective date:** 29 June 2026
 
 ConvoGo is a face-to-face translation app for two people sharing one phone. This page explains what data the app handles and how.
 
@@ -8,8 +8,8 @@ ConvoGo is a face-to-face translation app for two people sharing one phone. This
 
 ## What ConvoGo collects
 
-- **Microphone audio** is captured only when you actively start a turn (by tapping a language chip or swiping). Audio is processed by your device's built-in speech recognition (Apple Speech on iOS, Google's speech service on Android) to produce a text transcript. ConvoGo itself never records or stores the audio.
-- **Transcribed text** is sent over the network to ConvoGo's translation server (see "Third parties" below) so it can be translated into the other language. Only the text is transmitted — never the audio.
+- **Microphone audio** is captured only when you actively start a turn (by tapping a language chip or swiping). The audio is streamed over an encrypted connection to a cloud speech-to-text provider (see "Third parties" below) to produce a text transcript in real time. The audio is used only for that transcription; ConvoGo does not record or store it. If the cloud service is unreachable, the app falls back to your device's built-in speech recognition (Apple Speech on iOS, Google's speech service on Android).
+- **Transcribed text** is sent over the network to ConvoGo's translation server (see "Third parties" below) so it can be translated into the other language.
 - **Language preferences** (the two languages you picked) are stored locally on your device. They never leave your device.
 
 ## What ConvoGo does NOT collect
@@ -22,17 +22,13 @@ ConvoGo is a face-to-face translation app for two people sharing one phone. This
 
 ## Third parties
 
-For translation to work, transcribed text is sent to:
+For speech-to-text and translation to work, your audio and the resulting text are sent to:
 
-1. **Cloudflare Workers** — ConvoGo's translation server runs on Cloudflare's infrastructure. Cloudflare may log standard network metadata (such as IP address and request timestamp) as part of routine network operations. See [Cloudflare's privacy policy](https://www.cloudflare.com/privacypolicy/).
-2. **Google Cloud Translation API** — the actual translation is performed by Google's Cloud Translation service, which receives the transcribed text and returns the translated text. See [Google's privacy policy](https://policies.google.com/privacy).
+1. **Cloudflare Workers** — ConvoGo's proxy server runs on Cloudflare's infrastructure and routes both the audio stream and the translation requests. Cloudflare may log standard network metadata (such as IP address and request timestamp) as part of routine network operations. See [Cloudflare's privacy policy](https://www.cloudflare.com/privacypolicy/).
+2. **Deepgram** — cloud speech-to-text. The microphone audio is streamed (via the Cloudflare proxy) to Deepgram, which transcribes it to text in real time. The audio is processed to produce the transcript and is not retained by ConvoGo. See [Deepgram's privacy policy](https://deepgram.com/privacy).
+3. **Google Cloud Translation API** — the actual translation is performed by Google's Cloud Translation service, which receives the transcribed text and returns the translated text. See [Google's privacy policy](https://policies.google.com/privacy).
 
-Speech recognition is performed by your device's built-in speech recognition service:
-
-- On **iOS**, by Apple's Speech framework. For supported languages, this happens on-device; for others, Apple may process audio on its servers per Apple's policy.
-- On **Android**, by Google's SpeechRecognizer service, which may send audio to Google's servers for processing depending on your device's speech recognition settings.
-
-ConvoGo does not control how these platform services handle the audio they receive. Their behaviour is governed by Apple's and Google's privacy policies respectively.
+If the cloud speech service is unreachable, ConvoGo falls back to your device's built-in speech recognition (Apple's Speech framework on iOS, Google's SpeechRecognizer on Android). In that case the audio is handled by the platform under Apple's or Google's own privacy policy, which ConvoGo does not control.
 
 ## Permissions
 
