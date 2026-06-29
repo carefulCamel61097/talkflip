@@ -187,6 +187,16 @@ The plan routes weak-language audio to a cloud STT instead of the native engine,
 
 **Open questions:** which languages get flagged `cloud` (driven by Phase 1's tier + real tester feedback, e.g. Thai); whether to ever fake streaming by chunking Whisper (deferred — fiddly, burns far more Neurons); whether a noisy environment alone (not language) should trigger cloud.
 
+**Phase 2 — DONE, but built differently than specced above (2026-06-29).** Hands-on testing on the Oppo showed the native on-device STT is worse than Google Translate's even for **English** (Chrome felt good only because its Web Speech API *is* Google's cloud STT). So cloud STT became the **primary engine for all languages**, not a per-language fallback — and we chose **Deepgram streaming**, not batch Whisper, specifically to **keep the live word-by-word draft bubble** (the locked UX principle batch would have broken). Provider picked Deepgram over Google Cloud STT purely on build difficulty (WebSocket relay vs gRPC+OAuth); both clear the quality bar, Deepgram covers Thai on Nova-3.
+
+Architecture (all behind one seam so the UI is untouched): `SttEngine` interface with `OnDeviceSttEngine` / `CloudSttEngine`, chosen by `AppConfig.useCloudStt` (now `true`). `MicAudioSource` (`record` pkg) streams PCM16/16k/mono to a Worker `/stt-stream` WebSocket relay → Deepgram (key server-side); Deepgram's interim results drive the bubble, `speech_final` commits. Validated on Oppo: live bubble, accuracy, and pause-handling all good.
+
+**Accepted behavior (don't "fix"):** switching sides mid-sentence drops the last ~few-hundred-ms of speech, because we commit the last partial *received* and streaming lags real speech by the network round-trip. Deemed reasonable UX ("let the bubble finish, then switch") and far better than the old wrong-side bug. Recovering the tail would need a finalize-and-wait on switch — added latency + straggler risk, not worth it.
+
+**Remaining polish:** (7) resilience — fall back to `OnDeviceSttEngine` on a cloud connection failure instead of going dead, plus a subtle status indicator and mid-conversation reconnect; (8) privacy label (audio now leaves the device for processing) + this roadmap; (9) per-device **minute** counting in the Worker (guards the open endpoint + powers the usage-transparency/freemium idea). Then a new build to ship.
+
+**Freemium boundary shift:** the original "free native languages, paid cloud languages" split (the `cloudStt`-per-language flag) **no longer applies** — cloud is now the only engine. Monetisation becomes a **metered cloud-minutes** model instead (free quota → top-up), which is exactly what the usage-transparency note under Monetisation describes.
+
 ### Romanization of non-Latin scripts
 Optional Settings toggle (off by default) to show Latin-alphabet transliteration alongside the translation for scripts like Thai, Japanese, Korean, Chinese, Russian, Arabic, Hindi (e.g. สวัสดี → *sawatdi*). Serves "read, don't listen" (a traveler who can't read the script can't use the output) and doubles as a language-learning aid.
 

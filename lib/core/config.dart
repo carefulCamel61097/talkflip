@@ -20,5 +20,5 @@ class AppConfig {
   /// Worker. Flip to `true` (and hot-restart) to A/B the cloud engine on a
   /// device — it requires the Worker deployed with the `/stt-stream` route and
   /// the `DEEPGRAM_API_KEY` secret set. Will become the default once validated.
-  static const bool useCloudStt = false;
+  static const bool useCloudStt = true;
 }
