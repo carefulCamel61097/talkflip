@@ -21,6 +21,18 @@ class MicAudioSource {
 
   final AudioRecorder _recorder = AudioRecorder();
 
+  /// Start/stop run strictly one after another. During rapid side switching a
+  /// stop could otherwise arrive while a start was still opening the mic: the
+  /// stop saw "not recording" and did nothing, the start then finished, and
+  /// the mic was left running underneath the next session.
+  Future<void> _queue = Future.value();
+
+  Future<T> _serial<T>(Future<T> Function() op) {
+    final result = _queue.then((_) => op());
+    _queue = result.then((_) {}, onError: (_) {});
+    return result;
+  }
+
   /// Whether microphone permission is granted. The conversation layer already
   /// gates activation on `permission_handler`, so callers pass `request: false`
   /// to avoid a second, redundant OS prompt from the recorder.
@@ -31,19 +43,21 @@ class MicAudioSource {
   /// a chunk of raw little-endian 16-bit samples, ready to forward to the STT
   /// socket as-is.
   Future<Stream<Uint8List>> start() {
-    return _recorder.startStream(const RecordConfig(
-      encoder: AudioEncoder.pcm16bits,
-      sampleRate: sampleRate,
-      numChannels: numChannels,
-    ));
+    return _serial(() => _recorder.startStream(const RecordConfig(
+          encoder: AudioEncoder.pcm16bits,
+          sampleRate: sampleRate,
+          numChannels: numChannels,
+        )));
   }
 
   /// Stops the current capture. A no-op if not currently recording, so it's
   /// safe to call on every turn-end / side-switch.
-  Future<void> stop() async {
-    if (await _recorder.isRecording()) {
-      await _recorder.stop();
-    }
+  Future<void> stop() {
+    return _serial(() async {
+      if (await _recorder.isRecording()) {
+        await _recorder.stop();
+      }
+    });
   }
 
   /// Releases the recorder. Call when the owning engine is disposed.

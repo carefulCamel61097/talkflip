@@ -12,12 +12,12 @@
   <header class="hero">
     <img class="icon" src="icon.png" alt="ConvoGo app icon">
     <h1>Privacy Policy</h1>
-    <p class="meta">Last updated: June 29, 2026</p>
+    <p class="meta">Last updated: November 21, 2026</p>
   </header>
 
   <main class="wrap">
     <div class="card">
-      <p>ConvoGo ("the app", "we") is a face-to-face translation app for two people sharing one phone. We built it to be private by default. This policy explains what the app does and does not do with your information.</p>
+      <p>ConvoGo ("the app", "we") is a translation app for two situations: talking face to face with someone on one shared phone (voice mode), and chatting with someone in another messaging app (text mode). We built it to be private by default. This policy explains what the app does and does not do with your information.</p>
     </div>
 
     <div class="card">
@@ -25,7 +25,7 @@
       <ul class="features">
         <li>No account, no sign-up, no advertising, no tracking.</li>
         <li>We don't sell your data, and we don't build a profile of you.</li>
-        <li>Your conversations are not stored on our servers and are cleared from the app when you close it.</li>
+        <li>Your conversations are not stored on our servers. The app keeps your current conversation on your phone until you clear it.</li>
       </ul>
     </div>
 
@@ -33,16 +33,19 @@
       <h2>What the app uses, and why</h2>
 
       <h3>Microphone &amp; speech</h3>
-      <p>When you tap a language to speak, the app captures audio from your device's microphone and streams it, over an encrypted connection, to our speech service, which forwards it to a third-party speech-to-text provider (Deepgram) that converts your speech to text in real time. The audio is used only to produce that transcript while you are speaking; we do not record, save, or store it, and it is not tied to your name, account, or a device identifier. If the cloud speech service is unavailable, the app falls back to your device's built-in speech recognition (handled by your operating system — Apple on iOS, Google on Android), in which case audio is handled by that platform under its own privacy policy.</p>
+      <p>When you tap a language to speak, the app captures audio from your device's microphone and streams it, over an encrypted connection, to our speech service, which forwards it to a third-party speech-to-text provider (Deepgram) that converts your speech to text in real time. The audio is used only to produce that transcript while you are speaking; we do not record, save, or store it, and it is not tied to your name or account. If the cloud speech service is unavailable, the app falls back to your device's built-in speech recognition (handled by your operating system — Apple on iOS, Google on Android), in which case audio is handled by that platform under its own privacy policy.</p>
 
       <h3>Translation</h3>
-      <p>To translate, the app sends the transcribed <em>text</em> (and the two language codes, e.g. "en" and "es") over an encrypted connection to our translation service, which forwards it to the Google Cloud Translation API and returns the translation. These requests are not tied to your name, account, or a device identifier. We do not store the text you translate. Google processes the text to perform the translation under its own terms; see Google's privacy policy.</p>
+      <p>To translate, the app sends the <em>text</em> (your transcribed speech in voice mode, or the message you type or paste in text mode) (and the two language codes, e.g. "en" and "es") over an encrypted connection to our translation service, which forwards it to the Google Cloud Translation API and returns the translation. These requests are not tied to your name, account, or a device identifier. We do not store the text you translate. Google processes the text to perform the translation under its own terms; see Google's privacy policy.</p>
+
+      <h3>Clipboard (text mode)</h3>
+      <p>In text mode the app reads your clipboard only when you tap <em>Paste</em>, to bring in the message you copied from your chat app. It puts text on your clipboard when you send a message (the translation, ready to paste into your chat) or when you tap a bubble to copy it. The app never reads the clipboard in the background.</p>
 
       <h3>Usage limits</h3>
-      <p>To keep the service within its free tier, our server keeps a single running count of the total number of characters translated each month. This is an anonymous aggregate number only — it contains no text, no personal data, and nothing that identifies you or your device.</p>
+      <p>To keep the service within its free tier, our server keeps a running count of the total number of characters translated each month. For speech, it also counts the minutes of audio used per installation of the app, so it can apply a fair monthly limit. That count is tied to a random ID the app creates on first use. The ID is not linked to your name, account, phone number or advertising ID, and the counts contain no audio, no text and no personal data.</p>
 
-      <h3>Your settings</h3>
-      <p>The two languages you choose are saved locally on your device so the app remembers them next time. They are not sent to us.</p>
+      <h3>Your settings and conversations</h3>
+      <p>Your two languages, your settings, and your current conversation in each mode are saved locally on your device, so they are still there when you reopen the app. They are not sent to us or synced anywhere. Tap <em>Clear</em> in the app to delete a conversation; uninstalling the app deletes everything.</p>
     </div>
 
     <div class="card">
@@ -52,7 +55,7 @@
         <li>No location data.</li>
         <li>No contacts, photos, or files.</li>
         <li>No advertising identifiers or analytics SDKs.</li>
-        <li>No conversation history — nothing is stored or synced.</li>
+        <li>No conversation history on our servers — conversations stay on your phone and nothing is synced.</li>
       </ul>
     </div>
 

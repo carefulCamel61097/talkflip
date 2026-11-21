@@ -26,7 +26,7 @@ class AboutPage extends StatelessWidget {
             ),
             SizedBox(height: 8),
             Text(
-              'A minimalist face-to-face translator for two people, one phone.',
+              'A minimalist translator for face-to-face conversations on one phone, and for chatting in other apps.',
               style: TextStyle(fontSize: 16, color: AppColors.subtleText),
             ),
             SizedBox(height: 32),
@@ -36,13 +36,14 @@ class AboutPage extends StatelessWidget {
             ),
             SizedBox(height: 8),
             Text(
-              "ConvoGo uses your microphone to transcribe what you say. Your "
-              "speech is streamed to a cloud speech-to-text service to produce "
-              "the transcript, and the transcribed text is sent to Google "
-              "Translate — both via a thin proxy we operate. Audio and text are "
-              "used only to do the translation and aren't stored on any server. "
-              "Conversations stay on your device in memory only — they're "
-              "cleared when you close the app.",
+              "In voice mode, ConvoGo uses your microphone to transcribe what "
+              "you say: your speech is streamed to a cloud speech-to-text "
+              "service. The text (transcribed, typed or pasted) is sent to "
+              "Google Translate. Both go through a thin proxy we operate, and "
+              "audio and text are used only to do the translation — they "
+              "aren't stored on any server. In text mode, the clipboard is "
+              "read only when you tap Paste. Your conversations are saved on "
+              "this phone only, until you tap Clear.",
               style: TextStyle(fontSize: 14, height: 1.5),
             ),
           ],

@@ -135,6 +135,37 @@ iOS (App Store):
 
 **Build-machine rule:** Android release AABs must be built on **Windows** (the upload keystore + gitignored `android/key.properties` live there; a Mac-built Android release falls back to the debug key and Play rejects it for wrong signing). iOS is built on the **Mac**. See [convogo-dev-setup] in memory.
 
+### M11 — Release 1.2.0: text mode + outstanding store chores (in progress)
+
+**Store state found 2026-11-21:** iOS **1.1.1 (build 11) is live** ("Ready for Distribution"; the expired TestFlight build is just TestFlight's 90-day limit). Android: Play submission #8 (2026-06-29, Production) = build 10 (1.1.0, cloud STT) published; submission #9 (2026-07-05, App Content) = most likely the Data Safety update. Version numbers per release are under Play Console → Test and release → Production → Releases.
+
+**Store / admin chores — do before or while submitting 1.2.0:**
+- [ ] Play Console: confirm Production shows 1.1.0 (10), and that the Data Safety form discloses Audio Data + User Content (probably done in submission #9)
+- [ ] App Store Connect → App Privacy: check whether the cloud-audio disclosure was updated for 1.1.1; if not, disclose Audio Data + User Content (App Functionality, not linked, no tracking). Check Deepgram's no-retention setting first
+- [ ] App Store Connect: answer Apple's new **age rating** questions (updates are blocked until done)
+- [ ] App Store Connect → Pricing and Availability: **remove China mainland** (clears the "security assessment" and "AIGC declaration" warnings; Google Translate and Deepgram don't work there anyway)
+- [ ] iOS: test in the **iOS Simulator** on the Mac (no iPhone available — decided 2026-11-21): text mode end to end, the iOS "Allow Paste" prompt, layout, saved conversations; voice mode as far as the simulator's mic allows. A real-iPhone test of cloud STT waits until a friend with an iPhone tries it (accepted risk: small user base, mostly the developer + friends). See HANDOFF.md
+- [x] Privacy policy (`docs/privacy.html`, `docs/index.md`), landing + support pages, in-app About: conversations stored on the phone, clipboard read only on Paste, typed/pasted text sent for translation, text mode described. Also fixed a stale claim from the step-9 metering work: speech *is* counted per install via an anonymous random ID (the policy still said "not tied to a device identifier"). Goes live on GitHub Pages when pushed
+- [ ] Store privacy forms must match, including that anonymous install ID: App Store *App Privacy* → Identifiers → Device ID (App Functionality, not linked, no tracking); Play *Data Safety* → Device or other IDs
+- [ ] Store listings: text-mode screenshot(s), updated description, "What's new" (both stores)
+- [x] Bump pubspec to **1.2.0+12**
+- [ ] iOS IPA on the Mac (iPhone-only) → upload; then Android AAB on Windows (check path isn't SportsPort); submit both
+
+**Build — decided 2026-11-21:**
+- [x] "You" on the right in both modes (WhatsApp convention): your language + green bubbles on the right, tap-from-neutral activates your side, THEM / YOU labels under the chips. Stored prefs unchanged (the `language_pair_left` key holds *your* language)
+- [x] Text mode: voice/text toggle in the top bar; Paste button for their side; text field for yours with auto-copy of the translation; tap the original or the translation inside a bubble to copy exactly that part
+- [x] Clear button in the top bar (both modes) with Undo, replacing "Clear conversation" in Settings
+- [x] Long-press a bubble → menu: copy translation, copy original, delete (both modes, with Undo)
+- [x] Faster side switching: the UI switches instantly; the cloud engine starts the mic *before* connecting and buffers audio until the socket is ready (first words after a switch were previously lost during the connect round-trip); the socket close handshake is no longer awaited. Scroll follows a bubble that grows when its translation lands; the long-press menu drops focus so the keyboard doesn't pop up after Delete
+- [x] Rapid-switch race fixed (2026-11-21): an overtaken cloud connect called the *new* session's onError → false fallback (amber dot) + "Thai isn't installed" while on English. Fix: per-session generation token in `CloudSttEngine`, serialized mic start/stop in `MicAudioSource`, stale activation checks dropped in the page. Amber/grey dot is tappable and explained at the top of Settings. Verified on Oppo with a log capture: no false fallbacks. Known, accepted: the first word after a switch is occasionally misheard or dropped (fine when spoken clearly)
+- [x] Conversations kept on the phone between launches, one per mode (`ConversationStore`, shared_preferences key `conversation_<mode>`, stored as a list of conversations so a future saved-conversations feature needs no migration; a translation interrupted by closing the app comes back as "tap to retry")
+- [x] Read-back line ("Reads back as: …") under your text-mode messages, Settings switch "Read-back check", **default on**; an identical read-back (ignoring case/punctuation) is hidden, which removes the "why is my own sentence repeated?" confusion that briefly made us consider default off. Costs one extra translation per message you send
+- [x] Top bar balanced: the clear button is a grey "Clear" pill the same size as the voice/text toggle, so the cog looks centred
+
+**Later (not 1.2.0):** Android "Translate with ConvoGo" in the text-selection menu (`PROCESS_TEXT`), iOS share extension; chat themes (see below); saved conversations list (see below).
+
+Voice mode's long-press menu offers **Delete only** — no copy: both languages are already on screen for the two people present, so there's nothing to copy elsewhere (decided 2026-11-21).
+
 ## Beyond v1.0 — post-launch ideas
 
 Captured here so they don't get lost. None are committed; each will need a design pass before it becomes a milestone. Listed in rough order of how "free" they feel — language expansion is mostly mechanical, monetisation needs a strategy decision, videocall mode is a real product redesign.
@@ -222,19 +253,14 @@ ConvoGo currently has no revenue model. Translation costs accrue on the free tie
 
 **Open questions:** what's the trigger — the 500k Google free-tier cap, $X/month in costs, or earlier (so growth can be funded)? Per-device tracking integrity (people can reinstall). iOS and Android billing differences.
 
-### Messaging mode (text-only sibling app)
-A separate, STT-free version: a bilingual messaging app. Each person types in their own language; every message shows both the **original** (sender's language) and the **translation** (recipient's language) — the same dual-text bubble ConvoGo already uses. No microphone, no speech recognition.
+### Messaging mode (two-device messaging app) — superseded
+The earlier idea was a full two-device bilingual messaging app (accounts, real-time delivery, push). Superseded by **text mode** (M11): a single-device helper where the user's existing chat app (WhatsApp, LINE, …) does the delivery and ConvoGo only translates, with paste-in / auto-copy-out. No backend beyond the existing translate proxy. A real two-device product remains a possible sibling app, but nothing points to it now.
 
-**Why it's appealing:**
-- Reuses the existing translation infrastructure (Worker + Google Translate) directly; the dual-text bubble UI carries over unchanged.
-- Drops all the STT complexity (mic permissions, platform recognizer quirks, the Android session-gap problem, per-language STT quality).
-- Works in contexts where speaking is awkward or impossible (quiet rooms, async conversations, accessibility for deaf/hard-of-hearing users).
+### Saved conversations (text mode first)
+1.2.0 keeps **one** conversation per mode. Later: save a conversation and reopen it from a list. Most useful in **text mode** — roughly one conversation per chat partner (e.g. two Thai friends), and then each conversation probably needs its **own language pair**. Little value in voice mode (face-to-face moments rarely get revisited). Storage is the easy part (1.2.0 stores a list of messages; turning it into a list of conversations is small); the real cost is the UI — a list screen, naming, switching, deleting, per-conversation languages — which adds screens and taps. Revisit once people use text mode for more than one contact.
 
-**Why it's significant scope:**
-- It breaks the "two people, one phone, one moment" model — this is **two devices, remote, asynchronous**, which means a real messaging backend: identity/accounts, real-time delivery, message persistence, push notifications. That's a much larger build than the current serverless-proxy setup, and it's where most of the cost/effort lives.
-- Translation volume scales with message count across many users → the free-tier cap math (see Monetisation) becomes more pressing.
-
-**Open question:** is this a mode inside ConvoGo or a separate product sharing the translation infrastructure? Almost certainly a separate product — the networking/accounts layer is a different beast from the current one-phone app.
+### Chat themes
+Let users pick a bubble/colour theme in Settings (today's look is WhatsApp-like green). Based on the most-used chat apps (WhatsApp, LINE, Instagram, WeChat…) but not identical copies, and with **generic names and no logos** ("Green", "Blue", "Gradient", …) — using other apps' brand names or trade dress is an App Store/Play IP risk. A **dark theme** is the most useful variant and should come first. Needs `AppColors` (currently compile-time constants) moved into a `ThemeExtension`. Low risk, mostly visual; adds one Settings row.
 
 ### Videocall mode
 Currently ConvoGo is built for the "two people, one phone, face-to-face" moment. A natural adjacent use case: two people on a video call, each speaking their own language, ConvoGo running on one side and translating the other side's audio in real time.

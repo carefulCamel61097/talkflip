@@ -1,76 +1,47 @@
-# Handoff — cloud STT milestone → iOS release
+# Handoff — release 1.2.0 (text mode) → Mac session for iOS
 
-**As of 2026-06-29, on the Windows machine.** Read alongside `ROADMAP.md`
-("Language-specific STT (cloud fallback)") and `CLAUDE.md`.
+**Written 2026-11-21 on the Windows machine.** Read alongside `CLAUDE.md` (product rules, now including text mode) and `ROADMAP.md` → "M11 — Release 1.2.0" (the full to-do list, store chores included).
 
-## What changed and why
+## Where things stand
 
-We migrated speech-to-text from the native **on-device** recognizers to **cloud
-streaming** (Deepgram, via a Cloudflare Worker WebSocket relay), because hands-on
-testing showed on-device STT was worse than Google Translate even for English.
-Cloud STT is now the **default engine**. Then three follow-up steps, all
-committed:
+- **Live:** iOS 1.1.1 (build 11) on the App Store; Android 1.1.0 (build 10) on Google Play. Both have cloud speech-to-text (Deepgram via the Cloudflare Worker).
+- **Code for 1.2.0 is finished** and tested hands-on on Android (Oppo CPH2483). `pubspec.yaml` is already at **1.2.0+12**; don't bump it again for this release.
+- **No backend changes** in 1.2.0. Text mode reuses the Worker's existing translate endpoint, so nothing needs deploying.
 
-- **Step 7 — resilience + commit cadence** (`a1d08fb`). `ResilientSttEngine`
-  wraps cloud + on-device: on a cloud failure (connect refused, mid-session
-  drop, mic fail) it transparently restarts the same turn on the on-device
-  recognizer and shows a subtle amber "basic speech recognition" dot (only while
-  online, so it never collides with the offline dot); reconnects lazily per-turn,
-  gated by connectivity + a 30s post-failure cooldown. A bubble now commits on
-  the **first** of: Deepgram `speech_final` (~300ms, acoustic), `UtteranceEnd`
-  (~1s, word-gap, via `utterance_end_ms=1000`), or a **3s client-side hard
-  ceiling** — so it can never hang.
-- **Step 8 — privacy (repo side)** (`f733f56`). `docs/privacy.html` (live),
-  `docs/index.md`, and the in-app About now disclose that mic audio is streamed
-  off-device to Deepgram (via the Cloudflare proxy), with the on-device engine as
-  an offline fallback. The old "audio never leaves the device" claim is gone.
-  **Store side is still pending** (see below).
-- **Step 9 — metering + endpoint guard** (`631b8d4`). The Worker meters uploaded
-  audio (32000 B/s → seconds) into KV (`mins:<device>:<month>` +
-  `mins:global:<month>`), caps it (**120 min/device/month**, **2000 min/month
-  global**), and gates `/stt-stream` with a shared `STT_APP_TOKEN`. Over a cap or
-  a bad token → the WS upgrade is refused → the app falls back to on-device
-  (degraded, not dead). An anonymous per-install `device` id attributes usage.
+## What's new in 1.2.0
 
-## State right now
+- **Text mode** (keyboard icon, top left), for chatting in another app. Their side: a **Paste** button reads the clipboard and translates. Your side: a text field; on send the translation is **auto-copied** to the clipboard. Tap the original or the translation inside a bubble to copy just that part. Code: `lib/features/text_mode/`.
+- **You on the right in both modes** (WhatsApp convention): your language in green on the right, theirs in white on the left, THEM / YOU labels under the chips. The prefs key `language_pair_left` still holds *your* language; only the position changed, so there's no migration.
+- **Conversations are kept on the phone**, one per mode (`lib/core/conversation_store.dart`), until the **Clear** pill (top right, with Undo) is tapped.
+- **Long-press a bubble:** text mode offers copy + delete; voice mode offers delete only. Delete has Undo.
+- **Read-back check** (text mode, Settings switch, on by default): shows what your translation says back in your language, only when it differs from what you typed.
+- **Faster, race-free side switching.** The UI switches instantly, and the cloud engine starts the mic before connecting and buffers the audio. A session-generation guard in `CloudSttEngine` and serialized mic start/stop in `MicAudioSource` stop an overtaken connect from tripping the on-device fallback. The amber/grey status dot can be tapped, and Settings explains it.
+- **Privacy policy, landing, support and About** are updated: on-device conversation storage, clipboard use, text mode, and the anonymous install ID used for the speech-minutes limit.
 
-- **Android build 10** (`1.1.0+10`, commit `922d2b4`) is built and **submitted
-  to Play Console review.** AAB: `build/app/outputs/bundle/release/app-release.aab`.
-- The **Cloudflare Worker is deployed** (shared backend — iOS uses the same one).
-  The `STT_APP_TOKEN` Worker secret is set and matches the committed default in
-  `lib/core/config.dart`, so iOS needs no extra config to talk to it.
-- ⚠️ **The cloud-STT stack has only ever been tested on Android (an Oppo).** It
-  has **never run on iOS** — raw mic capture via the `record` package,
-  PCM16/16k/mono over WebSocket, Deepgram. This is the main risk for the iOS
-  release.
+## Mac session: what to do
 
-## What to do on the Mac (iOS)
+There is **no iPhone available**, so iOS testing happens in the **iOS Simulator**. A real-iPhone test (mainly cloud speech-to-text, which is live in 1.1.1 but was never hand-tested on iOS) waits until a friend with an iPhone tries it. That's an accepted risk: the app is used mostly by the developer and friends.
 
-1. **Test cloud STT on a real iPhone before building a release.** Confirm: the
-   live bubble streams, accuracy is good, bubbles commit promptly, and
-   side-switching works. Then force the fallback
-   (`flutter run --dart-define=STT_APP_TOKEN=nope`) and confirm it drops to
-   on-device STT + shows the amber dot. Fix any iOS-specific `record` / audio
-   issues first — don't assume Android parity.
-2. **Build the iOS release at build number 10** (already in `pubspec.yaml`):
-   `flutter build ipa --export-options-plist <plist>` (app-store, manual, profile
-   "ConvoGo App Store") → `xcrun altool --upload-app --type ios -f
-   build/ios/ipa/ConvoGo.ipa --apiKey <KEYID> --apiIssuer <ISSUER>`. The App Store
-   Connect API key (.p8) lives in `~/.appstoreconnect/private_keys/`. Keep it
-   **iPhone-only** (`TARGETED_DEVICE_FAMILY=1`). Build 10 supersedes the earlier
-   iOS build 9. `Info.plist` needs **no changes** — the mic + speech-recognition
-   usage strings are still accurate, and the speech-recognition permission is
-   still used by the on-device fallback.
-3. **Update App Store Connect → App Privacy** to match the new cloud-audio
-   reality (it was "Data Not Collected"): disclose **Audio Data** + text (**User
-   Content**), used for **App Functionality**, **not linked** to identity, **no
-   tracking**. Whether you can keep "Data Not Collected" hinges on **Deepgram's
-   no-retention** setting — see the step-8 notes in `ROADMAP.md`. Mirror whatever
-   you entered in the Play **Data Safety** form.
-4. **Submit for review.**
+1. `git pull`, then `flutter pub get` and `cd ios && pod install`.
+2. **Run in the Simulator** (`open -a Simulator`, then `flutter run`) and check:
+   - **Text mode end to end.** Copy text in the simulator (for example from Notes or Safari), tap Paste, type a reply, send, and confirm the translation lands on the clipboard (paste it into Notes).
+   - **The iOS "Allow Paste" prompt.** iOS asks when an app reads the clipboard. Note how often it appears and whether it's acceptable. If it fires on every Paste and feels bad, possible fixes are a native `UIPasteControl` (iOS 16+) or an `EditableText`-based paste. Discuss with the user before building anything.
+   - Layout: the top bar (toggle, cog and Clear pill look balanced), chips with THEM/YOU, bubbles, the composer above the keyboard, and the long-press sheet.
+   - Saved conversations survive quitting and relaunching the app.
+   - **Voice mode, as far as the simulator allows.** The Simulator can use the Mac's microphone, so cloud STT (`record` package → WebSocket → Deepgram) may work. If it does, that's a useful partial check of the iOS audio path. The on-device fallback (`--dart-define=STT_APP_TOKEN=nope`) may not work in the Simulator; don't chase it.
+3. Fix anything iOS-specific, then run `flutter analyze` and `flutter test` (32 tests).
+4. **Build and upload:** `flutter build ipa --export-options-plist <plist>` (app-store, manual signing, profile "ConvoGo App Store"), then `xcrun altool --upload-app --type ios -f build/ios/ipa/ConvoGo.ipa --apiKey <KEYID> --apiIssuer <ISSUER>`. The API key (.p8) is in `~/.appstoreconnect/private_keys/`. Keep it **iPhone-only** (`TARGETED_DEVICE_FAMILY=1`). `Info.plist` needs no changes: clipboard access needs no usage string.
+5. Commit any fixes and push, so the Windows machine builds Android from the same code.
+
+## After the Mac session
+
+- **Windows:** build the Android AAB (`flutter build appbundle`). Check the path is under `Apps\Translator app\`, not the sibling SportsPort project, then upload it to Play.
+- **Store chores (any browser)**, listed in ROADMAP M11:
+  - App Store Connect: answer the new age-rating questions, remove China mainland from availability, and update App Privacy (Audio Data, User Content, and Device ID for the anonymous install ID; all App Functionality, not linked, no tracking).
+  - Play Console: mirror the same in Data Safety.
+  - Both stores: new text-mode screenshots and "What's new" text.
+- Then submit both stores for review.
 
 ## Working style (reminder)
 
-Build/verify hands-on before committing; one commit per milestone; the folder is
-"Translator app" but the repo/package is **talkflip**; a sibling **SportsPort**
-project sits next door — avoid build/AAB/IPA mix-ups.
+The user verifies hands-on before committing, does the git commits themselves, and prefers one commit per milestone. The folder is "Translator app" but the repo and package are **talkflip**. Every store release needs a new marketing version (the App Store closes the previous one once it's approved).

@@ -1,5 +1,9 @@
+import 'dart:math';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/app_mode.dart';
+import '../../core/conversation_store.dart';
 import '../../core/supported_languages.dart';
 import 'active_side.dart';
 import 'language_pair.dart';
@@ -55,7 +59,20 @@ class ConversationNotifier extends Notifier<ConversationState> {
     // owns the engine's disposal — so we just read the active one here.
     _stt = ref.read(sttEngineProvider);
     _translation = ref.read(translationServiceProvider);
-    return ConversationState.initial;
+
+    // Restore the saved voice conversation (loaded before the router showed
+    // this mode) and keep saving it whenever the messages change. The live
+    // draft is never saved — only committed bubbles.
+    final saved =
+        ref.read(savedConversationsProvider).value?[AppMode.voice] ?? const [];
+    _nextMessageId = saved.isEmpty ? 0 : saved.map((m) => m.id).reduce(max) + 1;
+    final store = ref.read(conversationStoreProvider);
+    listenSelf((previous, next) {
+      if (!identical(previous?.messages, next.messages)) {
+        store.save(AppMode.voice, next.messages);
+      }
+    });
+    return ConversationState.initial.copyWith(messages: saved);
   }
 
   LanguagePair? get _pair => ref.read(languagePairProvider).value;
@@ -87,18 +104,25 @@ class ConversationNotifier extends Notifier<ConversationState> {
     final previousSide = state.activeSide;
     final pendingDraft = state.draftText;
 
-    // Stop first: SttService detaches its callback, so the dying session's
-    // final result can no longer be delivered to anyone.
-    await _stt.stopListening();
-
+    // Retire the old session's epoch first: anything it still delivers fails
+    // the epoch check in the handlers below.
+    final epoch = ++_listenEpoch;
     if (previousSide != ActiveSide.neutral) {
       _commitText(pendingDraft, previousSide);
     }
 
-    // Retire the old session's epoch; any straggler that still slips through
-    // will fail the epoch check in _handleSttResult.
-    final epoch = ++_listenEpoch;
+    // Show the switch immediately. Engine teardown (stopping the mic, closing
+    // the cloud socket) takes a noticeable moment, and the UI shouldn't wait
+    // for it.
     state = state.copyWith(activeSide: side, draftText: '');
+
+    // stopListening() detaches the old session's callbacks synchronously,
+    // before its first await, so nothing can land between the state change
+    // above and here. Its final result (if any) is discarded at the source.
+    await _stt.stopListening();
+
+    // A newer switch happened while we were stopping; it owns the mic now.
+    if (epoch != _listenEpoch) return;
 
     final language = _languageFor(side);
     if (language == null) return;
@@ -106,8 +130,8 @@ class ConversationNotifier extends Notifier<ConversationState> {
     await _stt.startListening(
       locale: language.sttLocale,
       onResult: (text, isFinal) => _handleSttResult(epoch, side, text, isFinal),
-      onSuspended: _handleSttSuspended,
-      onError: _handleSttError,
+      onSuspended: () => _handleSttSuspended(epoch),
+      onError: () => _handleSttError(epoch),
     );
   }
 
@@ -121,13 +145,12 @@ class ConversationNotifier extends Notifier<ConversationState> {
     final previousSide = state.activeSide;
     final pendingDraft = state.draftText;
 
-    await _stt.stopListening();
-
-    _commitText(pendingDraft, previousSide);
-
     // Retire the old session's epoch so any straggler callback is dropped.
     _listenEpoch++;
+    _commitText(pendingDraft, previousSide);
     state = state.copyWith(activeSide: ActiveSide.neutral, draftText: '');
+
+    await _stt.stopListening();
   }
 
   void _handleSttResult(int epoch, ActiveSide side, String text, bool isFinal) {
@@ -140,7 +163,8 @@ class ConversationNotifier extends Notifier<ConversationState> {
     }
   }
 
-  void _handleSttSuspended() {
+  void _handleSttSuspended(int epoch) {
+    if (epoch != _listenEpoch) return;
     state = state.copyWith(activeSide: ActiveSide.neutral, draftText: '');
   }
 
@@ -149,7 +173,8 @@ class ConversationNotifier extends Notifier<ConversationState> {
   /// this turn, so return to neutral — same resting state as an idle suspend.
   /// The resilient engine handles the recoverable case (cloud → on-device)
   /// itself, so by the time this fires there's genuinely nothing to listen with.
-  void _handleSttError() {
+  void _handleSttError(int epoch) {
+    if (epoch != _listenEpoch) return;
     state = state.copyWith(activeSide: ActiveSide.neutral, draftText: '');
   }
 
@@ -215,20 +240,43 @@ class ConversationNotifier extends Notifier<ConversationState> {
   }) {
     final updated = state.messages.map((m) {
       if (m.id != id) return m;
-      return Message(
-        id: m.id,
-        originalText: m.originalText,
+      return m.withTranslation(
         translatedText: translatedText,
-        isLeft: m.isLeft,
-        translationFailed: failed,
+        failed: failed,
         limitReached: limitReached,
       );
     }).toList();
     state = state.copyWith(messages: updated);
   }
 
-  void clearMessages() {
-    state = state.copyWith(messages: const [], draftText: '');
+  /// Removes every message and returns them, so the caller can offer Undo
+  /// via [restoreMessages]. The live draft (if a side is active) is untouched.
+  List<Message> clearMessages() {
+    final previous = state.messages;
+    state = state.copyWith(messages: const []);
+    return previous;
+  }
+
+  void restoreMessages(List<Message> messages) {
+    state = state.copyWith(messages: [...messages, ...state.messages]);
+  }
+
+  /// Removes one message. Returns its index and the message so the caller can
+  /// offer Undo via [insertMessage], or null if it's already gone.
+  (int, Message)? deleteMessage(int id) {
+    final index = state.messages.indexWhere((m) => m.id == id);
+    if (index < 0) return null;
+    final removed = state.messages[index];
+    state = state.copyWith(
+      messages: [...state.messages]..removeAt(index),
+    );
+    return (index, removed);
+  }
+
+  void insertMessage(int index, Message message) {
+    final list = [...state.messages];
+    list.insert(index.clamp(0, list.length), message);
+    state = state.copyWith(messages: list);
   }
 
   Future<void> retryTranslation(int id) async {

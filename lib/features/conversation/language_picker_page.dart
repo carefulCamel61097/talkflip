@@ -20,23 +20,23 @@ class LanguagePickerPage extends ConsumerStatefulWidget {
 }
 
 class _LanguagePickerPageState extends ConsumerState<LanguagePickerPage> {
-  Language? _left;
-  Language? _right;
+  Language? _mine;
+  Language? _theirs;
 
-  bool get _canSave => _left != null && _right != null && _left != _right;
+  bool get _canSave => _mine != null && _theirs != null && _mine != _theirs;
   bool get _isEditing => widget.initialPair != null;
 
   @override
   void initState() {
     super.initState();
-    _left = widget.initialPair?.left;
-    _right = widget.initialPair?.right;
+    _mine = widget.initialPair?.mine;
+    _theirs = widget.initialPair?.theirs;
   }
 
   Future<void> _save() async {
     await ref
         .read(languagePairProvider.notifier)
-        .setPair(LanguagePair(left: _left!, right: _right!));
+        .setPair(LanguagePair(mine: _mine!, theirs: _theirs!));
     if (!mounted) return;
     // Pop all the way back to the conversation page. In first-launch mode the
     // picker is itself the first route, so popUntil is a no-op and the router
@@ -81,16 +81,16 @@ class _LanguagePickerPageState extends ConsumerState<LanguagePickerPage> {
               ],
               _LanguageSelector(
                 label: 'Your language',
-                selected: _left,
-                exclude: _right,
-                onChanged: (lang) => setState(() => _left = lang),
+                selected: _mine,
+                exclude: _theirs,
+                onChanged: (lang) => setState(() => _mine = lang),
               ),
               const SizedBox(height: 24),
               _LanguageSelector(
                 label: 'Other language',
-                selected: _right,
-                exclude: _left,
-                onChanged: (lang) => setState(() => _right = lang),
+                selected: _theirs,
+                exclude: _mine,
+                onChanged: (lang) => setState(() => _theirs = lang),
               ),
               const Spacer(),
               ElevatedButton(

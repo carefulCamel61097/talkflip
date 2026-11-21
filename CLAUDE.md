@@ -6,7 +6,7 @@ A hyper-minimalist, two-person, face-to-face translation app. One phone, two lan
 
 These guide every product and engineering decision. When in doubt, refer back here.
 
-1. **Two people, one phone, one moment.** The entire UX is optimized for two humans standing face-to-face, passing a single phone back and forth. Features that don't serve that situation are out of scope.
+1. **Two people, one phone, one moment.** Voice mode is optimized for two humans standing face-to-face, passing a single phone back and forth. The one deliberate exception is **text mode** (see below): one person chatting in another app (WhatsApp, LINE, …) with someone who writes another language. Features that serve neither situation are out of scope.
 2. **Minimal interactions per turn.** A speaker should start a turn, deliver it, and end it without pressing any explicit "record" or "stop" button. Handing the phone over is the only signal we need.
 3. **Read, don't listen.** Text is faster than synthesized speech, works in noisy environments, and avoids robot voices. No TTS.
 4. **Discoverability AND elegance.** Gestures are powerful but invisible. Every primary action must also have a visible, tappable affordance. Gestures are a faster shortcut, never the only path.
@@ -18,17 +18,28 @@ These guide every product and engineering decision. When in doubt, refer back he
 
 ### Layout
 
-**Single main page.** The app has exactly one in-conversation screen. Settings and onboarding live elsewhere.
+**Single main page, two modes.** The app has one in-conversation screen with two modes, **voice** and **text**, switched by a small toggle in the top bar (last-used mode is remembered). Settings and onboarding live elsewhere.
+
+**Sides: them on the left, you on the right** (WhatsApp convention), in both modes. "Your language" from the picker is always the right side, with the green bubbles; the other person's is the left, in white. Small THEM / YOU labels sit under the chips.
 
 Anatomy of the main page, top to bottom:
-1. **Top bar:** small, low-contrast settings cog centered at the top. Preserves left/right symmetry of the chips below. Connectivity indicator (see below) lives in this bar when relevant.
-2. **Language chips row:** two language-code chips (EN, ES, etc.), one on the left, one on the right, each above their own side of the chat area. Chips are the primary tappable affordance to activate their side.
+1. **Top bar:** voice/text toggle on the left, small low-contrast settings cog centered, **"Clear" pill** on the right (same size as the toggle, so the bar stays visually symmetric) (clears with an "Undo" snackbar, no confirmation dialog). Connectivity indicator (see below) sits next to the cog when relevant.
+2. **Language chips row:** two language-code chips (EN, ES, etc.), one on the left, one on the right, each above their own side of the chat area. In voice mode, chips are the primary tappable affordance to activate their side; in text mode they are labels only.
 3. **Chat area:** chronological, WhatsApp-style. Left-side language's bubbles align left; right-side language's bubbles align right. Vertical scrolling reviews history.
 4. **Active speaker's draft bubble:** rendered inside the chat area on the active side, dashed/faded, streaming live transcription as the speaker talks. On commit (silence threshold OR side switch), the draft graduates into a committed dual-text bubble.
 
 **Dual-text bubble:** original transcribed text in small, dimmed font (so the speaker can verify accuracy); translated text directly below in large, bold font (for the listener).
 
-**No fixed bottom strip.** The draft lives inside the chat area, not in a dedicated bottom input zone (rejected because it breaks "both sides always visible" symmetry and pulls the speaker's eye away from their own chat side).
+**No fixed bottom strip (voice mode).** The draft lives inside the chat area, not in a dedicated bottom input zone (rejected because it breaks "both sides always visible" symmetry and pulls the speaker's eye away from their own chat side). Text mode is the exception: it needs a keyboard, so it has a bottom input bar.
+
+**Bubble interactions (both modes).** Long-press a bubble → bottom-sheet menu: copy translation, copy original, delete bubble (delete shows "Undo"). Failed-translation bubbles: tap retries. In voice mode a plain tap on a bubble passes through to the chat area (switches sides); in text mode a tap copies exactly the part tapped — the original or the translation.
+
+### Text mode
+For chatting in another app with someone who writes another language. Same language pair, same dual-text bubbles, both sides always visible.
+- **Their side (left): a "Paste" button, no text box.** One tap reads the clipboard, adds their bubble, translates it. You never type their language.
+- **Your side (right): a text field + send.** On send, the translation is **copied to the clipboard automatically** ("Thai copied" snackbar), ready to paste into the chat app. The Paste button hides while you're typing.
+- No microphone in text mode; switching to text mode turns the mic off.
+- **Read-back line (Settings switch, default on):** under your message, what the translation says when translated back into your language. Hidden when it matches what you typed (ignoring case/punctuation), so it only appears when it can tell you something.
 
 **Both sides always visible.** Even when one side is active, the inactive side's bubbles remain fully readable. Active state is shown by highlight on the active side, never by dimming the inactive side.
 
@@ -57,18 +68,22 @@ Anatomy of the main page, top to bottom:
 ### Gestures
 - **Horizontal swipe:** switch speakers OR activate a side from neutral state. **Direction convention: carousel/page-swipe model** — swipe pushes the current side off-screen and reveals the opposite side (swipe right → activate left; swipe left → activate right). Matches Instagram stories, Tinder, iOS Photos, etc. Must be reachable by a single thumb (works from the lower half of the screen at minimum).
 - **Vertical swipe:** scroll conversation history.
-- No other gestures in MVP.
+- **Long-press a bubble:** copy / delete menu (see Bubble interactions).
+- No other gestures.
 
 ### Persistence
 - **Persistent language memory.** The two chosen languages persist across sessions. Reopening drops users straight into the conversation screen in under a second.
-- **No conversation history persistence.** Conversations are in-memory only and clear on app close. Fresh conversation every session matches the "two people in a moment" use case.
+- **Conversations are kept on the phone (since 1.2.0).** One conversation per mode survives app restarts until the user clears it with the top-bar clear button. Stored locally only, never synced. (Reverses the earlier in-memory-only rule: text chats span hours or days, and losing a voice conversation to an accidental close was annoying too.)
 
 ### Settings page
 
 Settings is reachable via the cog in the top bar. Contents:
 - **Change the two languages.** This is the primary reason to enter settings.
-- **Clear current conversation.** For wiping mid-session without closing the app.
+- **Read-back check on/off** (text mode).
+- When the amber/grey status dot is showing, a line at the top explains it.
 - **About / privacy policy.** Required for app stores.
+
+(Clear conversation moved to the top bar of the main screen.)
 
 Nothing else. Silence threshold, mic timeout, STT engine choice, etc., are NOT exposed to users in MVP.
 
@@ -95,13 +110,13 @@ Shown only on first run, never again:
 ## Tech stack
 
 - **Framework:** Flutter (iOS + Android, single codebase). User has prior Flutter experience.
-- **STT:** `speech_to_text` package (native iOS Speech / Android SpeechRecognizer). On-device, free, supports streaming partial results for the live draft bubble. Cloud STT (Whisper) reserved as a per-language fallback if quality is insufficient.
+- **STT:** cloud streaming via **Deepgram**, relayed through the Cloudflare Worker (`/stt-stream` WebSocket), is the default since 1.1.1 — raw mic audio from the `record` package. `ResilientSttEngine` falls back to the on-device `speech_to_text` recognizer when the cloud is unreachable or over its cap (amber dot). See ROADMAP "Language-specific STT" and HANDOFF.md. Some notes below about Android `isFinal` timing describe the on-device fallback.
 - **Translation:** Google Translate API. 500k chars/month free, ~100+ languages, simple REST.
 - **Backend:** Cloudflare Worker proxy. Holds the Google Translate API key server-side, rate-limits per device, allows provider swaps without app updates. ~100k requests/day free tier.
 - **State management:** Riverpod.
 - **HTTP client:** `dio` (retries, timeouts, interceptors).
 - **Permissions:** `permission_handler` (microphone only).
-- **Local storage:** `shared_preferences` for chosen languages and settings. No conversation persistence — conversations are in-memory only and clear on app close.
+- **Local storage:** `shared_preferences` for chosen languages, settings and (from M11) the saved conversations. Note: the `language_pair_left` key holds *your* language, which is displayed on the **right** — the key name predates the you-on-the-right switch and was kept to avoid a migration.
 - **Project structure:** feature-first (`lib/features/conversation/`, `lib/features/settings/`, `lib/core/`).
 - **Animations:** Flutter built-ins (`AnimatedContainer`, `AnimatedSwitcher`). No third-party animation packages.
 - **i18n:** English only for MVP. All user-facing strings wrapped in `intl` from day one to make later localization cheap.

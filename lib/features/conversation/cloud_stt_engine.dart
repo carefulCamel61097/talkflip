@@ -46,6 +46,15 @@ class CloudSttEngine implements SttEngine {
   /// closes the socket, so stragglers can't even be produced.
   bool _listening = false;
 
+  /// Session generation. Bumped by every [startListening] and [stopListening].
+  /// Each start captures its own value and re-checks it after every await, so
+  /// a start that was overtaken (rapid side switching) bails out silently
+  /// instead of touching the newer session's mic, socket or callbacks. Without
+  /// this, an aborted connect of the OLD session called the NEW session's
+  /// onError — falsely tripping the on-device fallback (the amber dot) and the
+  /// "speech recognition isn't installed" hint for the other language.
+  int _gen = 0;
+
   /// Finalized segment text accumulated within the current turn (see class doc).
   String _finalized = '';
 
@@ -71,6 +80,7 @@ class CloudSttEngine implements SttEngine {
     required void Function() onError,
   }) async {
     await stopListening();
+    final gen = ++_gen;
 
     _onResult = onResult;
     _onSuspended = onSuspended;
@@ -79,12 +89,43 @@ class CloudSttEngine implements SttEngine {
     _lastDraft = '';
     _listening = true;
 
+    // Start the microphone FIRST and buffer its audio until the socket is
+    // ready. Connecting to the relay takes a network round-trip; if the mic
+    // only started after that, the first words after a side switch were lost
+    // even though the side already looked active. Deepgram happily takes the
+    // buffered audio in a burst.
+    final pending = <Uint8List>[];
+    var socketReady = false;
+    try {
+      final micStream = await _mic.start();
+      // Overtaken: the stop that overtook us is queued behind this start in
+      // MicAudioSource, so it will stop this capture. Don't touch the mic.
+      if (gen != _gen) return;
+      _micSub = micStream.listen((frame) {
+        if (gen != _gen) return;
+        if (!socketReady) {
+          pending.add(frame);
+          return;
+        }
+        try {
+          _channel?.sink.add(frame);
+        } catch (_) {/* socket closing */}
+      });
+    } catch (e) {
+      if (gen != _gen) return; // overtaken; not this session's failure
+      if (kDebugMode) debugPrint('CloudSTT: mic start failed: $e');
+      final cb = _onError;
+      await stopListening();
+      cb?.call();
+      return;
+    }
+
     // The device id (anonymous, for the Worker's per-device minute cap) and the
     // app token (so the public endpoint isn't wide open) ride on the connect
     // URL. DeviceId.get() is cached after the first call, so this is instant on
     // every later session.
     final deviceId = await DeviceId.get();
-    if (!_listening) return; // stopped while fetching the id
+    if (gen != _gen) return; // stopped while fetching the id
 
     final uri = Uri.parse(AppConfig.sttStreamUrl).replace(queryParameters: {
       'lang': _deepgramLang(locale),
@@ -99,6 +140,9 @@ class CloudSttEngine implements SttEngine {
       _channel = channel;
       await channel.ready;
     } catch (e) {
+      // Overtaken: our socket was closed by the stop that replaced us — that's
+      // expected, not a cloud failure. Must not reach the newer session.
+      if (gen != _gen) return;
       if (kDebugMode) debugPrint('CloudSTT: connect failed: $e');
       final cb = _onError;
       await stopListening();
@@ -106,7 +150,12 @@ class CloudSttEngine implements SttEngine {
       return;
     }
 
-    if (!_listening) return; // stopped while connecting
+    if (gen != _gen) {
+      // Stopped while connecting: close our own socket (the field may already
+      // hold a newer session's), and leave everything else alone.
+      unawaited(channel.sink.close().catchError((_) {}));
+      return;
+    }
 
     _wsSub = channel.stream.listen(
       _handleMessage,
@@ -115,25 +164,14 @@ class CloudSttEngine implements SttEngine {
       cancelOnError: true,
     );
 
+    // Flush what the mic caught while we were connecting, then go live.
     try {
-      final micStream = await _mic.start();
-      if (!_listening) {
-        await _mic.stop();
-        return;
+      for (final frame in pending) {
+        channel.sink.add(frame);
       }
-      _micSub = micStream.listen((frame) {
-        if (!_listening) return;
-        try {
-          _channel?.sink.add(frame);
-        } catch (_) {/* socket closing */}
-      });
-    } catch (e) {
-      if (kDebugMode) debugPrint('CloudSTT: mic start failed: $e');
-      final cb = _onError;
-      await stopListening();
-      cb?.call();
-      return;
-    }
+    } catch (_) {/* socket closing */}
+    pending.clear();
+    socketReady = true;
 
     _resetSuspendTimer();
   }
@@ -244,6 +282,7 @@ class CloudSttEngine implements SttEngine {
 
   @override
   Future<void> stopListening() async {
+    _gen++;
     _listening = false;
     _onResult = null;
     _onSuspended = null;
@@ -263,10 +302,15 @@ class CloudSttEngine implements SttEngine {
 
     await _wsSub?.cancel();
     _wsSub = null;
-    try {
-      await _channel?.sink.close();
-    } catch (_) {}
+    // Don't wait for the WebSocket close handshake (a network round-trip):
+    // nothing listens to this socket any more, and waiting made every side
+    // switch feel sluggish. The Worker still sees the close and flushes its
+    // minute counter.
+    final channel = _channel;
     _channel = null;
+    if (channel != null) {
+      unawaited(channel.sink.close().catchError((_) {}));
+    }
   }
 
   @override

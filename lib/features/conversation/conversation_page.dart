@@ -4,14 +4,14 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/theme.dart';
-import '../settings/settings_page.dart';
 import 'active_side.dart';
-import 'connectivity_provider.dart';
+import 'bubble_actions.dart';
 import 'conversation_state.dart';
 import 'draft_bubble.dart';
 import 'language_pair.dart';
+import 'message.dart';
 import 'message_bubble.dart';
-import 'stt_engine.dart';
+import 'top_bar.dart';
 
 class ConversationPage extends ConsumerStatefulWidget {
   const ConversationPage({super.key});
@@ -35,6 +35,7 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _maybeShowSwipeHint();
+      _jumpToBottom();
     });
   }
 
@@ -112,7 +113,10 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
   /// device before we activate. If the recogniser isn't installed, shows a
   /// hint pointing the user to system settings and returns false, so we don't
   /// light up a side whose mic would silently catch nothing.
-  Future<bool> _ensureLocaleAvailable(ActiveSide side) async {
+  Future<bool> _ensureLocaleAvailable(
+    ActiveSide side,
+    bool Function() stale,
+  ) async {
     // Same test bypass as the mic gate: widget tests can't drive the STT
     // platform channel, so skip the availability probe entirely.
     if (ConversationPage.bypassMicPermissionInTests) return true;
@@ -120,7 +124,7 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
     final installed =
         await ref.read(conversationProvider.notifier).isLocaleInstalled(side);
     if (installed) return true;
-    if (!mounted) return false;
+    if (stale() || !mounted) return false;
 
     final pair = ref.read(languagePairProvider).value;
     final language = side == ActiveSide.left ? pair?.left : pair?.right;
@@ -138,11 +142,19 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
     return false;
   }
 
+  /// Bumped on every activation request. The permission and locale checks
+  /// below are async; if the user taps again meanwhile (rapid switching), the
+  /// older request must neither activate nor show its hint — otherwise a stale
+  /// "Thai isn't installed" could pop up while English is the active side.
+  int _activationRequest = 0;
+
   Future<void> _activateWithPermission(ActiveSide side) async {
+    final request = ++_activationRequest;
+    bool stale() => request != _activationRequest || !mounted;
     final granted = await _ensureMicPermission();
-    if (!granted || !mounted) return;
-    final available = await _ensureLocaleAvailable(side);
-    if (!available || !mounted) return;
+    if (!granted || stale()) return;
+    final available = await _ensureLocaleAvailable(side, stale);
+    if (!available || stale()) return;
     ref.read(conversationProvider.notifier).activate(side);
   }
 
@@ -152,10 +164,59 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
   /// stop the hot mic without waiting out the 60s auto-suspend.
   void _onChipTap(ActiveSide side) {
     if (ref.read(conversationProvider).activeSide == side) {
+      _activationRequest++; // cancel any activation still being checked
       ref.read(conversationProvider.notifier).deactivate();
     } else {
       _activateWithPermission(side);
     }
+  }
+
+  void _clearConversation() {
+    final notifier = ref.read(conversationProvider.notifier);
+    final removed = notifier.clearMessages();
+    if (removed.isEmpty) return;
+    showUndoSnackBar(
+      context,
+      text: 'Conversation cleared',
+      onUndo: () => notifier.restoreMessages(removed),
+    );
+  }
+
+  void _openBubbleMenu(Message message) {
+    final pair = ref.read(languagePairProvider).value;
+    if (pair == null) return;
+    final original = message.isLeft ? pair.left : pair.right;
+    final translation = message.isLeft ? pair.right : pair.left;
+    showBubbleMenu(
+      context,
+      message: message,
+      originalLanguage: original.displayName,
+      translationLanguage: translation.displayName,
+      allowCopy: false,
+      onDelete: () {
+        final notifier = ref.read(conversationProvider.notifier);
+        final removed = notifier.deleteMessage(message.id);
+        if (removed == null || !mounted) return;
+        final (index, msg) = removed;
+        showUndoSnackBar(
+          context,
+          text: 'Bubble deleted',
+          onUndo: () => notifier.insertMessage(index, msg),
+        );
+      },
+    );
+  }
+
+  /// Opening the page (e.g. switching back from text mode) builds a fresh
+  /// list that would start at the top; land on the latest messages instead.
+  /// Twice: a lazy list only knows its true length after laying out the end.
+  void _jumpToBottom() {
+    if (!_scrollController.hasClients) return;
+    _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) return;
+      _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+    });
   }
 
   void _scrollToBottom() {
@@ -177,7 +238,13 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
     ref.listen(conversationProvider, (previous, next) {
       final prevCount = previous?.messages.length ?? 0;
       final prevDraft = previous?.draftText ?? '';
-      if (next.messages.length > prevCount || next.draftText != prevDraft) {
+      // Also when the last bubble changes in place: its translation landing
+      // makes it taller, which would otherwise leave it half off-screen.
+      final prevLast = previous?.messages.lastOrNull;
+      final lastChanged = !identical(prevLast, next.messages.lastOrNull);
+      if (next.messages.length > prevCount ||
+          next.draftText != prevDraft ||
+          lastChanged) {
         _scrollToBottom();
       }
     });
@@ -210,8 +277,11 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
           },
           child: Column(
             children: [
-              const _TopBar(),
-              _LanguageChipsRow(
+              ConvoTopBar(
+                canClear: convo.messages.isNotEmpty,
+                onClear: _clearConversation,
+              ),
+              LanguageChipsRow(
                 leftCode: leftCode,
                 rightCode: rightCode,
                 activeSide: convo.activeSide,
@@ -223,11 +293,11 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
                   behavior: HitTestBehavior.translucent,
                   onTap: () {
                     // Tap anywhere in the chat area switches sides (or
-                    // activates left from neutral). Failed-translation
-                    // bubbles still win for retry because their child
-                    // GestureDetector handles the tap first.
+                    // activates *your* side — the right — from neutral).
+                    // Failed-translation bubbles still win for retry because
+                    // their child GestureDetector handles the tap first.
                     final next = switch (convo.activeSide) {
-                      ActiveSide.neutral => ActiveSide.left,
+                      ActiveSide.neutral => ActiveSide.right,
                       ActiveSide.left => ActiveSide.right,
                       ActiveSide.right => ActiveSide.left,
                     };
@@ -247,6 +317,7 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
                           message: message,
                           isActiveSide: isActiveSide,
                           onRetry: () => notifier.retryTranslation(message.id),
+                          onLongPress: () => _openBubbleMenu(message),
                         );
                       }
                       return DraftBubble(
@@ -260,190 +331,6 @@ class _ConversationPageState extends ConsumerState<ConversationPage> {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _TopBar extends ConsumerWidget {
-  const _TopBar();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final isOnline = ref.watch(connectivityProvider).value ?? true;
-    // Only meaningful while online: when offline the offline dot already says
-    // "degraded", so the two indicators never show at once.
-    final onFallbackStt =
-        isOnline && ref.watch(sttModeProvider) == SttMode.fallback;
-    return SizedBox(
-      height: 48,
-      child: Stack(
-        children: [
-          Center(
-            child: IconButton(
-              icon: const Icon(
-                Icons.settings_outlined,
-                size: 22,
-                color: AppColors.settingsCog,
-              ),
-              tooltip: 'Settings',
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const SettingsPage()),
-                );
-              },
-            ),
-          ),
-          if (!isOnline)
-            const Positioned(
-              right: 16,
-              top: 16,
-              child: _OfflineDot(),
-            )
-          else if (onFallbackStt)
-            const Positioned(
-              right: 16,
-              top: 16,
-              child: _FallbackSttDot(),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _OfflineDot extends StatelessWidget {
-  const _OfflineDot();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Tooltip(
-      message: 'Offline — translation unavailable',
-      child: SizedBox(
-        width: 10,
-        height: 10,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: Color(0xFFB0B0B0),
-            shape: BoxShape.circle,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Shown (in place of the offline dot) when the cloud recogniser is unreachable
-/// and we've fallen back to the on-device engine. Same understated dot as the
-/// offline indicator but a muted amber, signalling "working, just degraded" —
-/// not an alarm. Tapping nothing; the tooltip explains it on long-press/hover.
-class _FallbackSttDot extends StatelessWidget {
-  const _FallbackSttDot();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Tooltip(
-      message: 'Using basic speech recognition',
-      child: SizedBox(
-        width: 10,
-        height: 10,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: Color(0xFFD9A05B),
-            shape: BoxShape.circle,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _LanguageChipsRow extends StatelessWidget {
-  final String leftCode;
-  final String rightCode;
-  final ActiveSide activeSide;
-  final VoidCallback onLeftTap;
-  final VoidCallback onRightTap;
-
-  const _LanguageChipsRow({
-    required this.leftCode,
-    required this.rightCode,
-    required this.activeSide,
-    required this.onLeftTap,
-    required this.onRightTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 4, 24, 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          _LanguageChip(
-            code: leftCode,
-            isActive: activeSide == ActiveSide.left,
-            onTap: onLeftTap,
-          ),
-          _LanguageChip(
-            code: rightCode,
-            isActive: activeSide == ActiveSide.right,
-            onTap: onRightTap,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LanguageChip extends StatelessWidget {
-  final String code;
-  final bool isActive;
-  final VoidCallback onTap;
-
-  const _LanguageChip({
-    required this.code,
-    required this.isActive,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(
-            width: 12,
-            height: 12,
-            child: isActive
-                ? const DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: AppColors.accent,
-                      shape: BoxShape.circle,
-                    ),
-                  )
-                : null,
-          ),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-            decoration: BoxDecoration(
-              color: isActive ? AppColors.activeChipFill : AppColors.inactiveChipFill,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: AppColors.accent, width: 1.5),
-            ),
-            child: Text(
-              code,
-              style: AppTextStyles.languageChip.copyWith(
-                color: isActive ? AppColors.activeChipText : AppColors.inactiveChipText,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

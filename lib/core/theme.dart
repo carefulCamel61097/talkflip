@@ -6,8 +6,9 @@ class AppColors {
   static const Color chatBackground = Color(0xFFECE5DD);
   static const Color topBarBackground = Color(0xFFEDEDED);
 
-  static const Color leftBubble = Color(0xFFDCF8C6);
-  static const Color rightBubble = Color(0xFFFFFFFF);
+  // WhatsApp convention: the other person (left) in white, you (right) in green.
+  static const Color leftBubble = Color(0xFFFFFFFF);
+  static const Color rightBubble = Color(0xFFDCF8C6);
 
   static const Color originalText = Color(0xFF6B7280);
   static const Color translatedText = Color(0xFF111827);
