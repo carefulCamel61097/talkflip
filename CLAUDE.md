@@ -57,7 +57,7 @@ For chatting in another app with someone who writes another language. Same langu
 
 ### Microphone behavior
 - **Continuous listening on the active side.** Mic stays open until the other side is activated, or until a longer silence suspends it (see below).
-- **Intra-turn silence threshold.** Bubble commits when *either* (a) the platform STT engine fires `isFinal=true` (Android ~1s; iOS/Web rarely from natural pauses) *or* (b) our 3s fallback silence timer fires. Net effect: Android commits on ~1s sentence-end pauses (matching its native VAD); iOS and Web commit on 3s. Not used to switch speakers — switching is always explicit.
+- **Intra-turn silence threshold.** A bubble commits on the first of: the cloud engine's end-of-speech signals (Deepgram `speech_final` ~300ms, or `UtteranceEnd` after a ~1s word gap) or our **3s client-side ceiling**, so it can never hang. On the on-device fallback, the platform `isFinal=true` (Android ~1s; iOS rarely) plays the role of the end-of-speech signal. Not used to switch speakers; switching is always explicit.
 - **Neutral state.** Neither side is active. Reached on app open before first interaction, after a longer total silence (e.g., 30–60s, battery-saving), or by deliberately tapping the active language chip to turn the mic off.
 - **Activating from neutral.** Tapping a language chip OR swiping horizontally must activate the corresponding side. Swipe must work in neutral state, not only when switching between two active states.
 - **Live draft bubble.** Words stream in real-time in a faint bubble as the speaker talks. On commit (silence threshold OR side switch), the draft is finalized and translated.
@@ -102,9 +102,9 @@ Shown only on first run, never again:
 
 ## Open questions
 
-- **Freemium tipping point:** baseline is free. If Google Translate's 500k chars/month free tier is exceeded, what's the trigger for a paid upgrade? Per-device monthly cap, optional upgrade prompt, or just absorb the cost? Defer until close to the limit.
-- **Per-language STT fallback:** if `speech_to_text` quality is poor for a target language, we'll add cloud STT (likely Whisper) just for that language. Which languages need this is TBD, discovered via testing.
-- **Android STT session-gap limitation (workaround applied):** Android's `SpeechRecognizer` is session-based — it ends sessions after ~1s of silence, with a ~100–500ms auto-restart gap. To make this visible rather than invisible, we commit a bubble on every platform `isFinal=true` (rather than accumulating across sessions). Users see the bubble commit, learn to pause briefly before continuing. Words spoken in the auto-restart gap can still be clipped, but the failure mode is now predictable and learnable. Full fix would require cloud streaming STT (Whisper, Google Cloud Speech) or direct `AudioRecord` capture — substantial work, deferred to post-MVP. iOS and Web don't have this issue.
+- **Freemium tipping point:** baseline is free. If Google Translate's 500k chars/month free tier (or the speech-minute caps) gets tight, what triggers a paid upgrade? See ROADMAP "Monetisation". Note: charging money requires switching the App Store's EU trader declaration to "trader" (public contact details) and signing the Paid Apps agreement.
+- **STT quality per language (largely resolved):** cloud STT (Deepgram) is now the default for every language, with the on-device recognizer as a fallback. Still to watch: languages where Deepgram itself is weak (Spanish was patchy in one noisy Simulator test, inconclusive), and the first word after a side switch occasionally being misheard (accepted).
+- **Android STT session-gap limitation (fallback only):** applies only when the app falls back to Android's on-device `SpeechRecognizer`, which ends sessions after ~1s of silence with a short auto-restart gap. There we commit a bubble on every platform `isFinal=true`, so the failure is visible and learnable. The default cloud engine streams continuously and doesn't have this gap.
 - **Language-change-on-main-page (deferred):** for MVP, language change lives only in settings. If user testing later shows people change languages frequently, revisit with a long-press-chip shortcut.
 
 ## Tech stack

@@ -1,47 +1,40 @@
-# Handoff — release 1.2.0 (text mode) → Mac session for iOS
+# Handoff — 1.2.0 submitted, waiting for store review
 
-**Written 2026-11-21 on the Windows machine.** Read alongside `CLAUDE.md` (product rules, now including text mode) and `ROADMAP.md` → "M11 — Release 1.2.0" (the full to-do list, store chores included).
+**Updated 2026-11-21 on the Windows machine.** Read alongside `CLAUDE.md` (product rules, including text mode) and `ROADMAP.md` → "M11 — Release 1.2.0".
 
 ## Where things stand
 
-- **Live:** iOS 1.1.1 (build 11) on the App Store; Android 1.1.0 (build 10) on Google Play. Both have cloud speech-to-text (Deepgram via the Cloudflare Worker).
-- **Code for 1.2.0 is finished** and tested hands-on on Android (Oppo CPH2483). `pubspec.yaml` is already at **1.2.0+12**; don't bump it again for this release.
-- **No backend changes** in 1.2.0. Text mode reuses the Worker's existing translate endpoint, so nothing needs deploying.
+- **Submitted to both stores on 2026-11-21:** 1.2.0 (build 12). iOS was uploaded from the Mac and is "Waiting for Review". Android was built on Windows and is in Play review. Both stores publish automatically once approved; for iOS, check the "Version Release" setting on the 1.2.0 page.
+- **Still live until approval:** iOS 1.1.1 (11) and Android 1.1.0 (10).
+- **Store listings updated:**
+  - Play: new 1080x2160 screenshots, full and short description rewritten for text mode, release notes, Data Safety (adds Device or other IDs).
+  - App Store: 1206x2622 screenshots in the "iPhone with Dynamic Island (Medium display)" slot, What's new, App Privacy (Audio Data, Other User Content, Device ID), new age-rating answers (4+).
+  - ConvoGo is now available in the EU on the App Store. It wasn't before, because the trader status was missing; the developer declared "not a trader". China mainland was removed on purpose.
+- **Code:** `main` contains everything shipped in 1.2.0, including the Mac's iOS commit `a2111f2` (iOS 15 minimum because Xcode 27 can't build lower, plus Allow Paste hints). Nothing is pending on the Mac except the usual local CocoaPods files, which stay uncommitted.
 
-## What's new in 1.2.0
+## What's new in 1.2.0 (for reference)
 
-- **Text mode** (keyboard icon, top left), for chatting in another app. Their side: a **Paste** button reads the clipboard and translates. Your side: a text field; on send the translation is **auto-copied** to the clipboard. Tap the original or the translation inside a bubble to copy just that part. Code: `lib/features/text_mode/`.
-- **You on the right in both modes** (WhatsApp convention): your language in green on the right, theirs in white on the left, THEM / YOU labels under the chips. The prefs key `language_pair_left` still holds *your* language; only the position changed, so there's no migration.
-- **Conversations are kept on the phone**, one per mode (`lib/core/conversation_store.dart`), until the **Clear** pill (top right, with Undo) is tapped.
-- **Long-press a bubble:** text mode offers copy + delete; voice mode offers delete only. Delete has Undo.
-- **Read-back check** (text mode, Settings switch, on by default): shows what your translation says back in your language, only when it differs from what you typed.
-- **Faster, race-free side switching.** The UI switches instantly, and the cloud engine starts the mic before connecting and buffers the audio. A session-generation guard in `CloudSttEngine` and serialized mic start/stop in `MicAudioSource` stop an overtaken connect from tripping the on-device fallback. The amber/grey status dot can be tapped, and Settings explains it.
-- **Privacy policy, landing, support and About** are updated: on-device conversation storage, clipboard use, text mode, and the anonymous install ID used for the speech-minutes limit.
+- **Text mode:** Paste their message, type yours, and the translation is auto-copied. Tap the original or the translation inside a bubble to copy just that part.
+- **You on the right in both modes,** with THEM / YOU labels. The prefs key `language_pair_left` still holds *your* language.
+- **Conversations are kept on the phone,** one per mode, until the **Clear** pill (with Undo) is tapped. Long-press a bubble to delete it (voice) or copy/delete it (text).
+- **Read-back check** (on by default, hidden when it matches what you typed).
+- **Faster, race-free side switching:** the mic starts before the cloud connects and buffers the audio, and a session-generation guard stops false fallbacks. The status dot can be tapped, and Settings explains it.
+- **Privacy policy, site and About updated:** local storage, clipboard use, text mode, and the anonymous install ID.
 
-## Mac session: what to do
+## Next
 
-There is **no iPhone available**, so iOS testing happens in the **iOS Simulator**. A real-iPhone test (mainly cloud speech-to-text, which is live in 1.1.1 but was never hand-tested on iOS) waits until a friend with an iPhone tries it. That's an accepted risk: the app is used mostly by the developer and friends.
+1. **Wait for the reviews.** Respond if either store emails about a problem.
+2. **After Android approval:** on the Oppo, uninstall the debug build, leave the internal test program, and install from the Play Store.
+3. **When a friend with an iPhone tries it:** test cloud STT on a real iPhone and the Allow Paste flow. See `TESTING_NOTES.md` → "1.2.0: things to watch".
+4. **Next release:** bump **both** the marketing version and the build number (e.g. 1.2.1+13). The App Store closes a version's train once it's approved.
 
-1. `git pull`, then `flutter pub get` and `cd ios && pod install`.
-2. **Run in the Simulator** (`open -a Simulator`, then `flutter run`) and check:
-   - **Text mode end to end.** Copy text in the simulator (for example from Notes or Safari), tap Paste, type a reply, send, and confirm the translation lands on the clipboard (paste it into Notes).
-   - **The iOS "Allow Paste" prompt.** iOS asks when an app reads the clipboard. Note how often it appears and whether it's acceptable. If it fires on every Paste and feels bad, possible fixes are a native `UIPasteControl` (iOS 16+) or an `EditableText`-based paste. Discuss with the user before building anything.
-   - Layout: the top bar (toggle, cog and Clear pill look balanced), chips with THEM/YOU, bubbles, the composer above the keyboard, and the long-press sheet.
-   - Saved conversations survive quitting and relaunching the app.
-   - **Voice mode, as far as the simulator allows.** The Simulator can use the Mac's microphone, so cloud STT (`record` package → WebSocket → Deepgram) may work. If it does, that's a useful partial check of the iOS audio path. The on-device fallback (`--dart-define=STT_APP_TOKEN=nope`) may not work in the Simulator; don't chase it.
-3. Fix anything iOS-specific, then run `flutter analyze` and `flutter test` (32 tests).
-4. **Build and upload:** `flutter build ipa --export-options-plist <plist>` (app-store, manual signing, profile "ConvoGo App Store"), then `xcrun altool --upload-app --type ios -f build/ios/ipa/ConvoGo.ipa --apiKey <KEYID> --apiIssuer <ISSUER>`. The API key (.p8) is in `~/.appstoreconnect/private_keys/`. Keep it **iPhone-only** (`TARGETED_DEVICE_FAMILY=1`). `Info.plist` needs no changes: clipboard access needs no usage string.
-5. Commit any fixes and push, so the Windows machine builds Android from the same code.
+## Tooling notes from this release
 
-## After the Mac session
-
-- **Windows:** build the Android AAB (`flutter build appbundle`). Check the path is under `Apps\Translator app\`, not the sibling SportsPort project, then upload it to Play.
-- **Store chores (any browser)**, listed in ROADMAP M11:
-  - App Store Connect: answer the new age-rating questions, remove China mainland from availability, and update App Privacy (Audio Data, User Content, and Device ID for the anonymous install ID; all App Functionality, not linked, no tracking).
-  - Play Console: mirror the same in Data Safety.
-  - Both stores: new text-mode screenshots and "What's new" text.
-- Then submit both stores for review.
+- **Mac signing:** the keychain holds two "Apple Distribution: Anne Epema" certificates, and the "ConvoGo App Store" profile contains only one (ACE3C29A…). A plain `flutter build ipa` fails until that certificate is pinned. Clean up the extra one some time.
+- **Simulator screenshots** are RGBA PNGs, which App Store Connect rejects with a misleading "invalid dimensions" error. Flatten the alpha first.
+- **The Oppo's 720x1612 screen** exceeds Play's 2:1 limit. Crop the status and navigation bars down to 720x1440, then upscale to 1080x2160.
+- **Cross-machine workflow:** the Mac Claude session can run with Remote Control on, and the Windows session relays to it with SendMessage (the Mac reports back). The user prefers talking only to the Windows session.
 
 ## Working style (reminder)
 
-The user verifies hands-on before committing, does the git commits themselves, and prefers one commit per milestone. The folder is "Translator app" but the repo and package are **talkflip**. Every store release needs a new marketing version (the App Store closes the previous one once it's approved).
+The user verifies hands-on before committing; one commit per milestone. The folder is "Translator app" but the repo and package are **talkflip**. The sibling SportsPort project sits next to it; check AAB paths and the signing key (ConvoGo upload key SHA1 starts `FA:B5`).

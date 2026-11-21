@@ -15,6 +15,16 @@ Items deferred from milestones (M9 in particular) to be revisited once we have r
 - **Larger text accessibility toggle.** Translation font is currently 20sp (bumped up from 18sp in M7). For elderly "other side" users, this may still be too small. Decide between a binary "Larger text" toggle vs. a slider once we see how often it's actually needed and how much bigger users want it.
 - **Mic permission denied flow UX.** Added in M9 — verify the dialog reads clearly, that "Open Settings" actually lands on the right OS settings page on each platform, and that the user successfully recovers after granting permission and returning to the app.
 
+## 1.2.0: things to watch with real users
+
+- **iPhone, never tested on a real device.** Cloud speech recognition worked in the Simulator via the Mac's microphone but has never run on a physical iPhone. The first friend with an iPhone should try: speaking on both sides, side switching, and offline fallback.
+- **iOS "Allow Paste" prompt.** iOS asks on every Paste unless the user allows it in Settings → ConvoGo → Paste from Other Apps. The app shows a hint when paste is denied and a one-time tip after the first paste; neither path could be tapped in the Simulator. Check both read clearly, and whether the prompt annoys people enough to justify Apple's native paste button (`UIPasteControl`, ~half a day).
+- **"Thai copied" snackbar vs Android's clipboard preview.** On Android 13+ the system shows its own clipboard preview in the corner, covering our snackbar. Harmless duplication; consider skipping our snackbar on Android 13+ if it looks cluttered.
+- **First word after a side switch** is occasionally misheard or dropped (accepted). If testers notice it, the fix is keeping the mic warm between turns (battery + privacy trade-off).
+- **Read-back check (on by default, hidden when identical).** Watch whether people understand the line when it does appear, and whether it ever catches a real mistranslation.
+- **Text mode usage.** Does anyone want several saved conversations (one per chat partner)? That's the trigger for the "Saved conversations" roadmap item.
+- **Swipe hint text** still says "Tap a language to talk. Swipe sideways to switch sides." Fine, but tap-the-chat now activates *your* side (right) from neutral; check new users aren't surprised.
+
 ## Process notes
 
 When you start gathering real-user feedback, treat each item here as a separate ticket. Don't try to fix all of them in one pass — most will turn out to be fine, and the ones that aren't will tell you what they actually need rather than what we guessed.

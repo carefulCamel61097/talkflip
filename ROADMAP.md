@@ -104,7 +104,9 @@ M0 → M1 → M2 → M3 → M4 is the spine. After M4 the product functions end-
 
 **Demo:** denying mic permission produces a clear dialog with a path to system settings; granting it from settings restores normal operation. App name ConvoGo throughout.
 
-### M10 — Shipping prep (Android shipped; iOS in review)
+### M10 — Shipping prep ✓ (both stores live; historical record below)
+
+> **Superseded status:** this section records the June 2026 state. Since then: Android 1.1.0 (10) and iOS 1.1.1 (11) went live with cloud STT, and 1.2.0 (12) was submitted to both stores on 2026-11-21 (see M11). The mid-speech switch fix credited below to `7cfd7e9` was incomplete; the real fix is `5938223` (`cancel()` instead of `stop()` in `stopListening`).
 
 Release 1.1.0 carries the real mid-speech-switch fix (commit `7cfd7e9`; an `SttService` per-session generation guard that drops stale results — earlier builds 5/6 had an incomplete version that still reproduced live) plus a microphone-permission-flow fix (see below). **Current store state (as of 2026-06-28):**
 - **Android: LIVE in production** — build 8 (1.1.0), full roll-out on Google Play since 2026-06-19. Production access was granted after the 14-day / 12-tester gauntlet. Build 8 = the real switch fix (`7cfd7e9`) + the `_ensureMicPermission` restructure. Build 7 (the earlier production candidate) was superseded; build 8 went straight to production. **No Android build 9 needed** — build 9 differs from 8 only by an iOS-only Podfile macro, functionally identical on Android.
@@ -135,21 +137,22 @@ iOS (App Store):
 
 **Build-machine rule:** Android release AABs must be built on **Windows** (the upload keystore + gitignored `android/key.properties` live there; a Mac-built Android release falls back to the debug key and Play rejects it for wrong signing). iOS is built on the **Mac**. See [convogo-dev-setup] in memory.
 
-### M11 — Release 1.2.0: text mode + outstanding store chores (in progress)
+### M11 — Release 1.2.0: text mode + outstanding store chores (submitted to both stores 2026-11-21)
 
 **Store state found 2026-11-21:** iOS **1.1.1 (build 11) is live** ("Ready for Distribution"; the expired TestFlight build is just TestFlight's 90-day limit). Android: Play submission #8 (2026-06-29, Production) = build 10 (1.1.0, cloud STT) published; submission #9 (2026-07-05, App Content) = most likely the Data Safety update. Version numbers per release are under Play Console → Test and release → Production → Releases.
 
 **Store / admin chores — do before or while submitting 1.2.0:**
-- [ ] Play Console: confirm Production shows 1.1.0 (10), and that the Data Safety form discloses Audio Data + User Content (probably done in submission #9)
-- [ ] App Store Connect → App Privacy: check whether the cloud-audio disclosure was updated for 1.1.1; if not, disclose Audio Data + User Content (App Functionality, not linked, no tracking). Check Deepgram's no-retention setting first
-- [ ] App Store Connect: answer Apple's new **age rating** questions (updates are blocked until done)
-- [ ] App Store Connect → Pricing and Availability: **remove China mainland** (clears the "security assessment" and "AIGC declaration" warnings; Google Translate and Deepgram don't work there anyway)
-- [ ] iOS: test in the **iOS Simulator** on the Mac (no iPhone available — decided 2026-11-21): text mode end to end, the iOS "Allow Paste" prompt, layout, saved conversations; voice mode as far as the simulator's mic allows. A real-iPhone test of cloud STT waits until a friend with an iPhone tries it (accepted risk: small user base, mostly the developer + friends). See HANDOFF.md
+- [x] Play Console: 1.1.0 (10) was live in Production (submission #8, 2026-06-29); submission #9 (2026-07-05, App Content) was most likely the Data Safety update
+- [x] App Store Connect → App Privacy: Audio Data + Other User Content were already disclosed; Identifiers → Device ID added 2026-11-21 (all App Functionality, not linked, no tracking). Optional later: confirm Deepgram's no-retention setting
+- [x] App Store Connect: answer Apple's new **age rating** questions (done 2026-11-21, all No → 4+)
+- [x] **EU availability (iOS):** ConvoGo had never been on the App Store in the 27 EU countries ("trader status not provided"). Declared "not a trader" (Digital Services Act) on 2026-11-21 → now 174 countries available, only China mainland excluded (removed on purpose). If the app ever earns money, the declaration must change to "trader" (public contact details) and the Paid Apps agreement must be signed
+- [x] App Store Connect → Pricing and Availability: **remove China mainland** (done 2026-11-21) (clears the "security assessment" and "AIGC declaration" warnings; Google Translate and Deepgram don't work there anyway)
+- [x] iOS tested in the Simulator on the Mac (2026-11-21): text mode, auto-copy, long-press, saved conversations, layout all fine; cloud STT works on iOS via the Mac mic (English word-perfect). Real-iPhone test still pending a friend with an iPhone. The Allow Paste prompt is confirmed → option A + iOS-only hints (commit a2111f2). iOS minimum raised to 15.0 (Xcode 27 can't build lower)
 - [x] Privacy policy (`docs/privacy.html`, `docs/index.md`), landing + support pages, in-app About: conversations stored on the phone, clipboard read only on Paste, typed/pasted text sent for translation, text mode described. Also fixed a stale claim from the step-9 metering work: speech *is* counted per install via an anonymous random ID (the policy still said "not tied to a device identifier"). Goes live on GitHub Pages when pushed
-- [ ] Store privacy forms must match, including that anonymous install ID: App Store *App Privacy* → Identifiers → Device ID (App Functionality, not linked, no tracking); Play *Data Safety* → Device or other IDs
-- [ ] Store listings: text-mode screenshot(s), updated description, "What's new" (both stores)
+- [ ] **Play Data Safety:** add Device or other IDs (App Functionality, not shared, not linked); App Store side done
+- [ ] **Play store listing:** upload the 4 new screenshots (`Desktop/convogo-1.2-screenshots/android-*.png`) and mention text mode in the full description. App Store side done (6.3" "Medium display" set at 1206x2622, no alpha; the Simulator's RGBA PNGs are rejected as "invalid dimensions")
 - [x] Bump pubspec to **1.2.0+12**
-- [ ] iOS IPA on the Mac (iPhone-only) → upload; then Android AAB on Windows (check path isn't SportsPort); submit both
+- [x] Built + submitted 2026-11-21: iOS 1.2.0 (12) uploaded from the Mac and submitted (Waiting for Review); Android 1.2.0 (12) AAB built on Windows (upload key FA:B5…) and submitted to Production
 
 **Build — decided 2026-11-21:**
 - [x] "You" on the right in both modes (WhatsApp convention): your language + green bubbles on the right, tap-from-neutral activates your side, THEM / YOU labels under the chips. Stored prefs unchanged (the `language_pair_left` key holds *your* language)
