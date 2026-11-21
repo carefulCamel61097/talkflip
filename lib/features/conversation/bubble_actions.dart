@@ -18,13 +18,17 @@ Future<void> copyWithToast(
   showToast(context, confirmation);
 }
 
-void showToast(BuildContext context, String text) {
+void showToast(
+  BuildContext context,
+  String text, {
+  Duration duration = const Duration(seconds: 2),
+}) {
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
     ..showSnackBar(
       SnackBar(
         content: Text(text),
-        duration: const Duration(seconds: 2),
+        duration: duration,
         behavior: SnackBarBehavior.floating,
       ),
     );

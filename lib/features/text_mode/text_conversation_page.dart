@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/theme.dart';
 import '../conversation/active_side.dart';
@@ -57,15 +59,50 @@ class _TextConversationPageState extends ConsumerState<TextConversationPage> {
 
   LanguagePair? get _pair => ref.read(languagePairProvider).value;
 
+  /// iOS asks "Allow Paste?" on every clipboard read of text copied in
+  /// another app, unless the user sets Settings → ConvoGo → Paste from Other
+  /// Apps → Allow. The messages below point there; Android never asks.
+  static const _seenIosPasteTipKey = 'seen_ios_paste_tip';
+  static const _iosHintDuration = Duration(seconds: 6);
+
+  bool get _isIos => defaultTargetPlatform == TargetPlatform.iOS;
+
   Future<void> _paste() async {
     final data = await Clipboard.getData(Clipboard.kTextPlain);
     final text = data?.text?.trim() ?? '';
     if (!mounted) return;
     if (text.isEmpty) {
+      // An empty read while the clipboard does hold text means the user
+      // tapped "Don't Allow Paste". hasStrings() doesn't trigger the prompt.
+      final denied = _isIos && await Clipboard.hasStrings();
+      if (!mounted) return;
+      if (denied) {
+        showToast(
+          context,
+          "Paste wasn't allowed. To skip this question, go to iOS Settings → "
+          'ConvoGo → Paste from Other Apps → Allow.',
+          duration: _iosHintDuration,
+        );
+        return;
+      }
       showToast(context, 'Nothing to paste. Copy their message in your chat app first.');
       return;
     }
+    if (_isIos) _showIosPasteTipOnce();
     await ref.read(textConversationProvider.notifier).addTheirs(text);
+  }
+
+  Future<void> _showIosPasteTipOnce() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool(_seenIosPasteTipKey) ?? false) return;
+    await prefs.setBool(_seenIosPasteTipKey, true);
+    if (!mounted) return;
+    showToast(
+      context,
+      'Tip: to stop iOS asking every time, go to Settings → ConvoGo → '
+      'Paste from Other Apps → Allow.',
+      duration: _iosHintDuration,
+    );
   }
 
   Future<void> _send() async {

@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -224,10 +225,12 @@ void main() {
   group('Text mode', () {
     late List<String> copied;
     String? clipboardText;
+    var clipboardHasStrings = false;
 
     setUp(() {
       copied = [];
       clipboardText = null;
+      clipboardHasStrings = false;
     });
 
     void mockClipboard(WidgetTester tester) {
@@ -240,6 +243,9 @@ void main() {
           }
           if (call.method == 'Clipboard.getData') {
             return clipboardText == null ? null : {'text': clipboardText};
+          }
+          if (call.method == 'Clipboard.hasStrings') {
+            return {'value': clipboardHasStrings};
           }
           return null;
         },
@@ -310,6 +316,46 @@ void main() {
       await tester.tap(find.text('Paste Spanish message'));
       await tester.pump();
       expect(find.byType(MessageBubble), findsNothing);
+      expect(find.textContaining('Nothing to paste'), findsOneWidget);
+    });
+
+    testWidgets('iOS: a denied paste points to the Settings switch', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      await openTextMode(tester);
+      // "Don't Allow Paste": the read comes back empty, but the clipboard
+      // does hold text.
+      clipboardHasStrings = true;
+      await tester.tap(find.text('Paste Spanish message'));
+      await tester.pump();
+      expect(find.byType(MessageBubble), findsNothing);
+      expect(find.textContaining("Paste wasn't allowed"), findsOneWidget);
+      expect(find.textContaining('Nothing to paste'), findsNothing);
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('iOS: the Paste from Other Apps tip shows once', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      await openTextMode(tester);
+      await pasteTheirs(tester, 'hola');
+      expect(find.textContaining('Tip: to stop iOS asking'), findsOneWidget);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool('seen_ios_paste_tip'), isTrue);
+      ScaffoldMessenger.of(tester.element(find.byType(TextConversationPage)))
+          .hideCurrentSnackBar();
+      await tester.pumpAndSettle();
+      await pasteTheirs(tester, 'adiós');
+      expect(find.textContaining('Tip: to stop iOS asking'), findsNothing);
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('Android: no iOS paste tip or denied message', (tester) async {
+      await openTextMode(tester);
+      await pasteTheirs(tester, 'hola');
+      expect(find.textContaining('Tip: to stop iOS asking'), findsNothing);
+      clipboardText = null;
+      clipboardHasStrings = true;
+      await tester.tap(find.text('Paste Spanish message'));
+      await tester.pump();
       expect(find.textContaining('Nothing to paste'), findsOneWidget);
     });
 
